@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Logbook MagangHub — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-prompt">$</span>
+      <span class="brand-text">logbook<span class="brand-dim">@maganghub</span></span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="generate">generate</button>
+      <button class="tab" data-tab="history">riwayat</button>
+      <button class="tab" data-tab="settings">pengaturan</button>
+    </nav>
+    <div class="status-pill" id="statusPill">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">memeriksa…</span>
+    </div>
+  </header>
+
+  <main class="view" id="view-generate">
+    <section class="panel commit-panel">
+      <div class="panel-head">
+        <h2>Commit hari ini</h2>
+        <button class="btn ghost small" id="refreshCommits">refresh</button>
+      </div>
+      <div class="commit-list" id="commitLog" aria-live="polite">
+        <p class="muted">Memuat commit…</p>
+      </div>
+    </section>
+
+    <section class="panel draft-panel">
+      <div class="panel-head">
+        <h2>Draft logbook</h2>
+        <div class="panel-actions">
+          <button class="btn ghost" id="manualBtn" type="button">catat manual</button>
+          <button class="btn primary" id="generateBtn" type="button">
+            <span class="btn-label">Generate berdasarkan Commit</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="draft-empty" id="draftEmpty">
+        <p>Belum ada draft. Generate dari commit, atau catat meeting dan aktivitas lain secara manual.</p>
+      </div>
+
+      <form class="draft-form hidden" id="draftForm">
+        <label class="field">
+          <span class="field-label">aktivitas</span>
+          <textarea id="fieldAktivitas" rows="5"></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">pembelajaran</span>
+          <textarea id="fieldPembelajaran" rows="5"></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">kendala</span>
+          <textarea id="fieldKendala" rows="5"></textarea>
+        </label>
+        <div class="form-actions">
+          <button type="button" class="btn ghost hidden" id="cancelManualBtn">batal</button>
+          <button type="button" class="btn ghost" id="regenerateBtn">generate ulang</button>
+          <button type="submit" class="btn success" id="saveDraftBtn">simpan ke excel</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <main class="view hidden" id="view-history">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Riwayat logbook</h2>
+        <span class="muted" id="entryCount"></span>
+      </div>
+      <div class="timeline" id="timeline">
+        <p class="muted">Memuat riwayat…</p>
+      </div>
+    </section>
+  </main>
+
+  <main class="view hidden" id="view-settings">
+    <section class="panel settings-panel">
+      <div class="panel-head">
+        <h2>Pengaturan</h2>
+      </div>
+      <form class="draft-form" id="settingsForm">
+        <label class="field">
+          <span class="field-label">gemini api key</span>
+          <input type="password" id="settingApiKey" placeholder="AIza…" autocomplete="off" />
+          <span class="field-hint" id="apiKeyHint"></span>
+        </label>
+        <label class="field">
+          <span class="field-label">repo git</span>
+          <input type="text" id="settingRepoPath" placeholder="/home/user/proyek-saya  atau  https://github.com/user/repo.git" />
+          <span class="field-hint">Isi path folder lokal, atau URL repo (https/ssh) kalau di-deploy — dashboard akan clone &amp; pull otomatis dari repo tersebut. Kosongkan untuk pakai folder ini.</span>
+        </label>
+        <label class="field">
+          <span class="field-label">model gemini</span>
+          <input type="text" id="settingModel" placeholder="gemini-3.6-flash" />
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn success">simpan pengaturan</button>
+        </div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Manual activity prompt modal -->
+<div class="modal-backdrop hidden" id="manualModalBackdrop">
+  <div class="modal manual-modal">
+    <div class="modal-head">
+      <h3>Catat kegiatan hari ini</h3>
+      <button class="btn ghost small" id="closeManualModal" type="button">tutup</button>
+    </div>
+    <form id="manualForm">
+      <label class="field">
+        <span class="field-label">deskripsi kegiatan</span>
+        <textarea id="manualDescription" rows="8" placeholder="Ceritakan kegiatanmu hari ini, seperti meeting, belajar, coding, diskusi, atau kendala yang muncul..." required></textarea>
+        <span class="field-hint">Tulis seadanya saja. AI akan merapikannya menjadi aktivitas, pembelajaran, dan kendala.</span>
+      </label>
+      <div class="form-actions">
+        <button type="submit" class="btn primary" id="tellAiBtn">beritahu AI</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit entry modal -->
+<div class="modal-backdrop hidden" id="editModalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Edit entri — <span id="editModalDate"></span></h3>
+      <button class="btn ghost small" id="closeModal">tutup</button>
+    </div>
+    <form id="editForm">
+      <label class="field">
+        <span class="field-label">aktivitas</span>
+        <textarea id="editAktivitas" rows="4"></textarea>
+      </label>
+      <label class="field">
+        <span class="field-label">pembelajaran</span>
+        <textarea id="editPembelajaran" rows="4"></textarea>
+      </label>
+      <label class="field">
+        <span class="field-label">kendala</span>
+        <textarea id="editKendala" rows="4"></textarea>
+      </label>
+      <div class="form-actions">
+        <button type="button" class="btn danger" id="deleteEntryBtn">hapus entri</button>
+        <button type="submit" class="btn success">simpan perubahan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

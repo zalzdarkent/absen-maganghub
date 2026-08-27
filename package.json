@@ -1,0 +1,20 @@
+{
+  "name": "maganghub-logbook-dashboard",
+  "version": "1.0.0",
+  "description": "Dashboard lokal untuk generate, edit, dan kelola Logbook MagangHub Kemnaker",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon server.js"
+  },
+  "dependencies": {
+    "@google/genai": "^0.3.0",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2",
+    "node-notifier": "^10.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

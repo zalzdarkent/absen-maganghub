@@ -48,6 +48,15 @@
   .commit-content{min-width:0;display:flex;flex-direction:column;gap:5px}
   .commit-message{font-size:12.5px;line-height:1.45;font-weight:500;overflow-wrap:anywhere}
   .commit-author{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8b949e}
+  .commit-stats{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8b949e;overflow-wrap:anywhere}
+  .commit-diff{margin-top:6px}
+  .commit-diff-toggle{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#58a6ff;cursor:pointer;list-style:none;user-select:none;padding:4px 8px;background:#0d1117;border:1px solid #24303c;border-radius:6px;display:inline-flex;align-items:center;gap:6px}
+  .commit-diff-toggle:hover{background:#161f29}
+  .commit-diff[open] .commit-diff-toggle{background:#161f29;border-color:#58a6ff}
+  .commit-diff-code{margin:6px 0 0 0;background:#0d1117;border:1px solid #24303c;border-radius:6px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-x:auto;max-height:320px;overflow-y:auto;color:#e6edf3;overflow-wrap:anywhere}
+  .commit-diff-code .line-add{color:#3fb950}
+  .commit-diff-code .line-del{color:#f85149}
+  .commit-sha{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8b949e;background:#0d1117;border:1px solid #24303c;padding:1px 6px;border-radius:999px}
   .status-error{margin:0;padding:14px;color:#ffb4ab;background:#4a2a2a;border-left:3px solid #f85149;font-size:12.5px;line-height:1.55}
   .timeline{position:relative;padding-left:22px;display:flex;flex-direction:column;gap:0}
   .timeline::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:#24303c}

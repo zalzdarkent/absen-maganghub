@@ -12,6 +12,9 @@ import {
     generateManualWithGemini,
     getCache,
     getTodayGitLogs,
+    getTodayCommitsWithDiff,
+    getTodayGitLogsDetailed,
+    getCommitDiff,
     readEntries,
     saveCache,
     updateEntry,
@@ -34,14 +37,44 @@ function todayStrings() {
 }
 
 // --- Status: git log preview + whether today's logs are already generated ---
+// Sekarang juga kirim `commits` dengan diff per commit untuk UI (expandable) & akurasi Gemini
 app.get('/api/status', async (req, res) => {
     try {
         const repoPath = getEffectiveRepoPath();
-        const gitLogs = await getTodayGitLogs(repoPath);
+        const wantDiff = req.query.diff !== '0'; // default include diff, ?diff=0 untuk mode cepat
+        let gitLogs = '';
+        let commits = [];
+        let detailed = '';
+        try {
+            if (wantDiff) {
+                const result = await getTodayGitLogsDetailed(repoPath, { maxCommits: 6, maxCharsPerDiff: 1000, maxTotalChars: 8500 });
+                gitLogs = result.logs;
+                detailed = result.detailed;
+                commits = result.commits;
+            } else {
+                gitLogs = await getTodayGitLogs(repoPath);
+            }
+        } catch (e) {
+            // fallback ke log sederhana jika diff gagal (rate limit / token)
+            gitLogs = await getTodayGitLogs(repoPath);
+        }
         const cache = getCache();
         const { todayDate } = todayStrings();
         const alreadyGenerated = cache.lastDate === todayDate && cache.lastLogs === gitLogs;
-        res.json({ gitLogs, hasCommitsToday: Boolean(gitLogs), alreadyGenerated, cache });
+        res.json({ gitLogs, commits, detailed, hasCommitsToday: Boolean(gitLogs), alreadyGenerated, cache });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Get diff untuk 1 commit (untuk expand per commit di UI) ---
+app.get('/api/commits/:sha/diff', async (req, res) => {
+    try {
+        const sha = String(req.params.sha || '').trim();
+        if (!sha || !/^[0-9a-f]{5,40}$/i.test(sha)) return res.status(400).json({ error: 'SHA tidak valid' });
+        const repoPath = getEffectiveRepoPath();
+        const diff = await getCommitDiff(repoPath, sha, { maxChars: 6000 });
+        res.json(diff);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -51,12 +84,20 @@ app.get('/api/status', async (req, res) => {
 app.post('/api/generate', async (req, res) => {
     try {
         const repoPath = getEffectiveRepoPath();
-        const gitLogs = await getTodayGitLogs(repoPath);
+        let gitLogs = '';
+        let diffSection = '';
+        try {
+            const detailed = await getTodayGitLogsDetailed(repoPath, { maxCommits: 8, maxCharsPerDiff: 1200, maxTotalChars: 9000 });
+            gitLogs = detailed.logs;
+            diffSection = detailed.detailed;
+        } catch {
+            gitLogs = await getTodayGitLogs(repoPath);
+        }
         if (!gitLogs) {
             return res.status(400).json({ error: 'Belum ada commit Git hari ini.' });
         }
-        const draft = await generateWithGemini(gitLogs);
-        res.json({ draft, gitLogs });
+        const draft = await generateWithGemini(gitLogs, diffSection);
+        res.json({ draft, gitLogs, diffSection, commits: (await getTodayCommitsWithDiff(repoPath).catch(()=>[])) });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -76,27 +117,42 @@ app.post('/api/generate-manual', async (req, res) => {
     }
 });
 
-// --- Generate a draft by COMBINING commit logs + manual notes (new!) ---
+// --- Generate a draft by COMBINING commit logs + manual notes (now diff-aware) ---
 app.post('/api/generate-combined', async (req, res) => {
     try {
         const manualNotes = String(req.body.manualNotes || req.body.description || '').trim();
         const gitLogsOverride = typeof req.body.gitLogs === 'string' ? req.body.gitLogs.trim() : null;
+        const diffOverride = typeof req.body.diffSection === 'string' ? req.body.diffSection : null;
 
         if (!manualNotes) {
             return res.status(400).json({ error: 'Catatan manual wajib diisi untuk mode gabungan.' });
         }
 
         const repoPath = getEffectiveRepoPath();
-        // Prefer gitLogs sent from client (already displayed), fallback to fresh fetch
         let gitLogs = gitLogsOverride;
+        let diffSection = diffOverride;
         if (gitLogs === null || gitLogs === undefined) {
-            gitLogs = await getTodayGitLogs(repoPath);
+            try {
+                const detailed = await getTodayGitLogsDetailed(repoPath, { maxCommits: 8, maxCharsPerDiff: 1000, maxTotalChars: 8000 });
+                gitLogs = detailed.logs;
+                diffSection = diffSection || detailed.detailed;
+            } catch {
+                gitLogs = await getTodayGitLogs(repoPath);
+            }
+        } else if (!diffSection) {
+            // Client mengirim gitLogs tapi belum ada diff -> coba ambil diff terbaru
+            try {
+                const detailed = await getTodayGitLogsDetailed(repoPath, { maxCommits: 6, maxCharsPerDiff: 1000, maxTotalChars: 8000 });
+                diffSection = detailed.detailed;
+                // jika gitLogs client masih sama, pakai detailed logs yang lebih lengkap
+                if (gitLogs === detailed.logs) diffSection = detailed.detailed;
+            } catch {
+                diffSection = '';
+            }
         }
 
-        // Allow combined even if no commits — manual notes still useful
-        // but inform AI that commits empty
-        const draft = await generateCombinedWithGemini(gitLogs || '', manualNotes);
-        res.json({ draft, gitLogs: gitLogs || '' });
+        const draft = await generateCombinedWithGemini(gitLogs || '', manualNotes, diffSection || '');
+        res.json({ draft, gitLogs: gitLogs || '', diffSection: diffSection || '' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -1,5 +1,7 @@
 const state = {
   gitLogs: '',
+  commits: [],
+  detailed: '',
   entries: [],
   manualMode: false,
   lastGenerateMode: 'commit', // 'commit' | 'manual' | 'combined'
@@ -17,7 +19,6 @@ function escapeHtml(s) {
 function showToast(message, kind = 'success') {
   const container = document.getElementById('toastContainer');
   if (!container) {
-    // Fallback if container missing
     console.log(`[${kind}] ${message}`);
     return;
   }
@@ -71,8 +72,78 @@ function showToast(message, kind = 'success') {
   }
 }
 
-function renderCommitLog(gitLogs) {
+function colorizeDiff(patch) {
+  return String(patch || '').split('\n').map(line => {
+    const esc = escapeHtml(line);
+    if (line.startsWith('+++') || line.startsWith('---')) return `<span style="color:#8b949e">${esc}</span>`;
+    if (line.startsWith('@@')) return `<span style="color:#58a6ff">${esc}</span>`;
+    if (line.startsWith('+')) return `<span class="line-add">${esc}</span>`;
+    if (line.startsWith('-')) return `<span class="line-del">${esc}</span>`;
+    return esc;
+  }).join('\n');
+}
+
+function renderCommitLog(gitLogs, commits = []) {
   const commitLog = $('#commitLog');
+  // Jika ada commits array dengan diff (dari /api/status baru), render rich
+  if (Array.isArray(commits) && commits.length > 0) {
+    commitLog.innerHTML = '';
+    commits.forEach((c, index) => {
+      const sha = c.sha || c.shortSha || '';
+      const shortSha = c.shortSha || (sha ? sha.slice(0,7) : '');
+      const message = c.message || c.subject || '';
+      const author = c.author || 'unknown';
+      const stats = c.stats || (c.files ? c.files.map(f => `${f.filename} (+${f.additions}/-${f.deletions})`).join(', ') : '');
+      const patch = c.patch || '';
+      const hasDiff = Boolean(patch && patch.trim());
+      const item = document.createElement('article');
+      item.className = 'commit-item';
+      // Escape for innerHTML attributes
+      const diffHtml = hasDiff ? `<details class="commit-diff"><summary class="commit-diff-toggle">📄 lihat diff <span class="commit-sha">${escapeHtml(shortSha)}</span></summary><pre class="commit-diff-code">${colorizeDiff(patch.slice(0, 4000))}</pre></details>` : (sha ? `<span class="commit-sha">${escapeHtml(shortSha)}</span><button class="commit-diff-toggle" data-sha="${escapeHtml(sha)}" type="button">muat diff</button>` : '');
+      item.innerHTML = `
+        <span class="commit-index">${String(index + 1).padStart(2, '0')}</span>
+        <div class="commit-content">
+          <strong class="commit-message"></strong>
+          <span class="commit-author"></span>
+          ${stats ? `<span class="commit-stats">${escapeHtml(stats)}</span>` : ''}
+          ${diffHtml}
+        </div>
+      `;
+      item.querySelector('.commit-message').textContent = message;
+      item.querySelector('.commit-author').textContent = `${author}${shortSha ? ' • ' + shortSha : ''}`;
+      // handle lazy diff button
+      const lazyBtn = item.querySelector('button[data-sha]');
+      if (lazyBtn) {
+        lazyBtn.addEventListener('click', async () => {
+          lazyBtn.disabled = true; lazyBtn.textContent = 'memuat…';
+          try {
+            const data = await api(`/api/commits/${encodeURIComponent(lazyBtn.dataset.sha)}/diff`);
+            const patchText = data.patch || data.files?.map(f=>f.patch).join('\n') || '(no diff)';
+            const pre = document.createElement('pre');
+            pre.className = 'commit-diff-code';
+            pre.innerHTML = colorizeDiff(patchText.slice(0,5000));
+            lazyBtn.replaceWith(pre);
+            if (data.stats || data.files) {
+              const statsEl = item.querySelector('.commit-stats');
+              if (!statsEl && data.files) {
+                const s = document.createElement('span');
+                s.className = 'commit-stats';
+                s.textContent = data.files.map(f=>`${f.filename} (+${f.additions}/-${f.deletions})`).join(', ');
+                item.querySelector('.commit-content').appendChild(s);
+              }
+            }
+          } catch (e) {
+            lazyBtn.textContent = 'gagal';
+            showToast(e.message, 'error');
+          }
+        });
+      }
+      // Add stats fallback if not already
+      commitLog.appendChild(item);
+    });
+    return;
+  }
+  // Fallback lama: gitLogs string "- msg (author)"
   const lines = String(gitLogs || '').split('\n').map((line) => line.trim()).filter(Boolean);
   if (lines.length === 0) {
     commitLog.innerHTML = '<p class="muted">(tidak ada commit hari ini — mode gabungan tetap bisa pakai catatan manual saja)</p>';
@@ -101,7 +172,7 @@ function renderCommitLog(gitLogs) {
 // API helper with timeout & better errors — perceives speed more honestly
 async function api(path, options = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000); // client timeout 30s
+  const timeout = setTimeout(() => controller.abort(), 35000);
   try {
     const res = await fetch(path, {
       ...options,
@@ -112,7 +183,7 @@ async function api(path, options = {}) {
     if (!res.ok) throw new Error(data.error || 'Terjadi kesalahan.');
     return data;
   } catch (err) {
-    if (err.name === 'AbortError') throw new Error('Request timeout (>30 detik). Cek koneksi atau coba lagi — server mungkin masih memproses.');
+    if (err.name === 'AbortError') throw new Error('Request timeout (>35 detik). Cek koneksi atau coba lagi — server mungkin masih memproses diff.');
     throw err;
   } finally {
     clearTimeout(timeout);
@@ -139,7 +210,6 @@ async function downloadExcel() {
 // ---------- tabs ----------
 function switchTab(name) {
   $all('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
-  // Robust: support both .view class and legacy id^=view- selector (fixes routing bug where content stayed on root)
   const views = document.querySelectorAll('[id^="view-"]');
   views.forEach((v) => v.classList.toggle('hidden', v.id !== `view-${name}`));
   if (name === 'history') loadHistory();
@@ -153,8 +223,15 @@ async function loadStatus() {
   const text = $('#statusText');
   try {
     const data = await api('/api/status');
-    state.gitLogs = data.gitLogs;
-    renderCommitLog(data.gitLogs);
+    state.gitLogs = data.gitLogs || '';
+    state.commits = Array.isArray(data.commits) ? data.commits : [];
+    state.detailed = data.detailed || '';
+    // Render dengan diff jika ada commits array, fallback ke gitLogs string
+    if (state.commits.length > 0) {
+      renderCommitLog('', state.commits);
+    } else {
+      renderCommitLog(state.gitLogs, []);
+    }
     updateMergePreview();
     if (!data.hasCommitsToday) {
       dot.className = 'dot warn';
@@ -164,7 +241,7 @@ async function loadStatus() {
       text.textContent = 'sudah di-generate hari ini';
     } else {
       dot.className = 'dot ok';
-      text.textContent = 'siap di-generate';
+      text.textContent = 'siap di-generate • diff siap';
     }
   } catch (err) {
     dot.className = 'dot err';
@@ -195,9 +272,8 @@ function setGenerateStatus(show, text) {
     generateTimer = setInterval(() => {
       const sec = (Date.now() - generateStart) / 1000;
       $('#generateTimer').textContent = `${sec.toFixed(1)}s`;
-      // hint after 8s
-      if (sec > 8) txt.textContent = 'masih meracik… (Gemini kadang butuh 5-15 detik)';
-      if (sec > 15) txt.textContent = 'sedikit lagi… coba tunggu';
+      if (sec > 8) txt.textContent = 'masih meracik… (Gemini + diff kadang butuh 5-15 detik)';
+      if (sec > 15) txt.textContent = 'sedikit lagi… diff sedang dianalisis Gemini';
     }, 200);
   } else {
     box.classList.add('hidden');
@@ -226,7 +302,7 @@ function showDraftForm(manual = false) {
   $('#draftEmpty').classList.add('hidden');
   $('#generateStatus').classList.add('hidden');
   $('#draftForm').classList.remove('hidden');
-  $('#regenerateBtn').classList.toggle('hidden', false); // always show — will regen last mode
+  $('#regenerateBtn').classList.toggle('hidden', false);
   $('#cancelManualBtn').classList.toggle('hidden', !manual);
   if (manual) {
     $('#fieldAktivitas').placeholder = 'Contoh: Mengikuti meeting kickoff sprint dan menyepakati pembagian task frontend.';
@@ -259,21 +335,26 @@ function updateMergePreview() {
   const hintEl = $('#mergeHint');
   if (!countEl || !previewEl) return;
   const logs = String(state.gitLogs || '').trim();
+  const commits = state.commits || [];
   const lines = logs ? logs.split('\n').filter(Boolean) : [];
-  if (lines.length === 0) {
+  const count = commits.length || lines.length;
+  if (count === 0) {
     countEl.textContent = '(0 commit hari ini)';
     previewEl.innerHTML = '<span class="muted small">(tidak ada commit hari ini — nanti AI akan pakai catatan manual saja)</span>';
     if (hintEl) hintEl.textContent = 'Tidak ada commit hari ini, isi catatan minimal 5 karakter untuk generate dari catatan.';
   } else {
-    countEl.textContent = `(${lines.length} commit)`;
-    // show first 4 commits as preview, with +N more
-    const toShow = lines.slice(0, 4);
-    previewEl.innerHTML = toShow.map(l => `<div class="merge-commit-line">${escapeHtml(l)}</div>`).join('') + (lines.length > 4 ? `<div class="muted small">+${lines.length - 4} commit lainnya…</div>` : '');
-    if (hintEl) hintEl.textContent = `Siap gabungkan ${lines.length} commit + catatan → hasil paling akurat ✨ (minimal 5 karakter)`;
+    countEl.textContent = `(${count} commit)`;
+    let toShow = [];
+    if (commits.length > 0) {
+      toShow = commits.slice(0, 4).map(c => `${c.message} (${c.author})${c.stats ? ' • ' + c.stats.split(',').slice(0,2).join(', ') : ''}`);
+    } else {
+      toShow = lines.slice(0, 4);
+    }
+    previewEl.innerHTML = toShow.map(l => `<div class="merge-commit-line">${escapeHtml(l)}</div>`).join('') + (count > 4 ? `<div class="muted small">+${count - 4} commit lainnya…</div>` : '');
+    if (hintEl) hintEl.textContent = `Siap gabungkan ${count} commit + diff + catatan → hasil paling akurat ✨ (minimal 5 karakter)`;
   }
 }
 
-// Re-generate should repeat last mode
 function setupCharCountListeners() {
   ['#fieldAktivitas', '#fieldPembelajaran', '#fieldKendala'].forEach(sel => {
     $(sel)?.addEventListener('input', updateCharCounts);
@@ -282,13 +363,7 @@ function setupCharCountListeners() {
 setupCharCountListeners();
 
 function openManualModal() {
-  // now: merge modal (commit + catatan)
   updateMergePreview();
-  const ta = $('#manualDescription');
-  if (ta && !ta.value.trim()) {
-    // keep previous value if user already typed, else clear
-    // do not auto-clear if they had typed before
-  }
   $('#manualModalBackdrop').classList.remove('hidden');
   setTimeout(() => $('#manualDescription')?.focus(), 50);
 }
@@ -306,17 +381,14 @@ $('#manualForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = $('#tellAiBtn');
   const notes = $('#manualDescription').value.trim();
-  const hasCommits = Boolean(String(state.gitLogs || '').trim());
+  const hasCommits = Boolean(String(state.gitLogs || '').trim()) || (state.commits && state.commits.length > 0);
   const hasNotes = notes.length >= 5;
 
-  // Validasi: butuh minimal catatan jika tidak ada commit, atau minimal salah satu
   if (!hasNotes && !hasCommits) {
     showToast('Isi catatan minimal 5 karakter (tidak ada commit hari ini).', 'error');
     return;
   }
   if (!hasNotes && hasCommits) {
-    // jika catatan kosong tapi ada commit, tanya konfirmasi — atau langsung pakai mode commit saja
-    // kita fallback ke generate commit biasa agar tidak bingung
     closeManualModal();
     await runGenerate();
     return;
@@ -325,25 +397,28 @@ $('#manualForm').addEventListener('submit', async (e) => {
   btn.disabled = true;
   const orig = btn.textContent;
   btn.textContent = 'menggabungkan…';
-  setGenerateStatus(true, hasCommits ? 'menggabungkan commit + catatan… ✨' : 'menyusun dari catatan…');
+  setGenerateStatus(true, hasCommits ? 'menggabungkan commit + diff + catatan… ✨' : 'menyusun dari catatan…');
   try {
-    // Selalu pakai endpoint gabungan — paling akurat. Jika commit kosong, backend tetap handle.
     const data = await api('/api/generate-combined', {
       method: 'POST',
-      body: JSON.stringify({ manualNotes: notes, gitLogs: state.gitLogs || '' }),
+      body: JSON.stringify({ manualNotes: notes, gitLogs: state.gitLogs || '', diffSection: state.detailed || '' }),
     });
     state.lastGenerateMode = 'combined';
     state.manualMode = false;
     state._lastCombined = notes;
     state._lastManual = notes;
-    if (data.gitLogs !== undefined) state.gitLogs = data.gitLogs;
+    if (data.gitLogs !== undefined) {
+      state.gitLogs = data.gitLogs;
+      if (data.commits) state.commits = data.commits;
+      if (data.diffSection) state.detailed = data.diffSection;
+    }
     $('#fieldAktivitas').value = data.draft.aktivitas;
     $('#fieldPembelajaran').value = data.draft.pembelajaran;
     $('#fieldKendala').value = data.draft.kendala;
     showDraftForm(false);
     closeManualModal();
     const elapsed = ((Date.now() - generateStart)/1000).toFixed(1);
-    showToast(`Draft gabungan jadi dalam ${elapsed}s — paling akurat ✨`, 'success');
+    showToast(`Draft gabungan jadi dalam ${elapsed}s — paling akurat ✨ (diff diperhitungkan)`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -359,17 +434,19 @@ async function runGenerate() {
   const label = btn.querySelector('.btn-label');
   const orig = label.textContent;
   label.textContent = 'meracik draft…';
-  setGenerateStatus(true, 'meracik dari commit…');
+  setGenerateStatus(true, 'meracik dari commit + diff…');
   try {
     const data = await api('/api/generate', { method: 'POST' });
-    state.gitLogs = data.gitLogs;
+    state.gitLogs = data.gitLogs || '';
+    state.detailed = data.diffSection || '';
+    state.commits = data.commits || state.commits;
     state.lastGenerateMode = 'commit';
     $('#fieldAktivitas').value = data.draft.aktivitas;
     $('#fieldPembelajaran').value = data.draft.pembelajaran;
     $('#fieldKendala').value = data.draft.kendala;
     showDraftForm(false);
     const elapsed = ((Date.now() - generateStart)/1000).toFixed(1);
-    showToast(`Draft dari commit jadi dalam ${elapsed}s ✔`, 'success');
+    showToast(`Draft dari commit jadi dalam ${elapsed}s ✔ (diff diperhitungkan)`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -380,22 +457,23 @@ async function runGenerate() {
   }
 }
 
-// runGenerateCombined tetap dipanggil via regenerate atau bisa dipanggil langsung (fallback)
 async function runGenerateCombined() {
   const notes = (state._lastCombined || $('#manualDescription')?.value || '').trim();
   if (!notes) {
-    // fallback ke merge modal
     openManualModal();
     return;
   }
-  setGenerateStatus(true, 'menggabungkan commit + catatan… ✨');
+  setGenerateStatus(true, 'menggabungkan commit + diff + catatan… ✨');
   try {
     const data = await api('/api/generate-combined', {
       method: 'POST',
-      body: JSON.stringify({ manualNotes: notes, gitLogs: state.gitLogs }),
+      body: JSON.stringify({ manualNotes: notes, gitLogs: state.gitLogs, diffSection: state.detailed }),
     });
     state.lastGenerateMode = 'combined';
-    if (data.gitLogs !== undefined) state.gitLogs = data.gitLogs;
+    if (data.gitLogs !== undefined) {
+      state.gitLogs = data.gitLogs;
+      if (data.diffSection) state.detailed = data.diffSection;
+    }
     $('#fieldAktivitas').value = data.draft.aktivitas;
     $('#fieldPembelajaran').value = data.draft.pembelajaran;
     $('#fieldKendala').value = data.draft.kendala;
@@ -412,12 +490,10 @@ async function runGenerateCombined() {
 
 $('#generateBtn').addEventListener('click', runGenerate);
 
-// regenerate respects last mode
 $('#regenerateBtn').addEventListener('click', async () => {
   if (state.lastGenerateMode === 'combined' && state._lastCombined) {
     await runGenerateCombined();
   } else if (state.lastGenerateMode === 'manual' && state._lastManual) {
-    // re-trigger manual via API
     const btn = $('#regenerateBtn');
     btn.disabled = true;
     const orig = btn.textContent;

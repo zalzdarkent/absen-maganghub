@@ -9,12 +9,66 @@ const state = {
 function $(sel) { return document.querySelector(sel); }
 function $all(sel) { return document.querySelectorAll(sel); }
 
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Tailwind toaster — stacked, dismissible, auto-hide, supports success/error/warning/info
 function showToast(message, kind = 'success') {
-  const toast = $('#toast');
-  toast.textContent = message;
-  toast.className = `toast show ${kind}`;
-  clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => { toast.className = 'toast'; }, 3200);
+  const container = document.getElementById('toastContainer');
+  if (!container) {
+    // Fallback if container missing
+    console.log(`[${kind}] ${message}`);
+    return;
+  }
+  const kindNorm = kind === 'error' ? 'error' : kind === 'warning' ? 'warning' : kind === 'info' ? 'info' : 'success';
+  const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+  const titles = { success: 'Berhasil', error: 'Gagal', warning: 'Perhatian', info: 'Info' };
+  const colors = { success: '#3fb950', error: '#f85149', warning: '#d29922', info: '#58a6ff' };
+  const duration = kindNorm === 'error' ? 5000 : kindNorm === 'warning' ? 4500 : 3500;
+
+  const toast = document.createElement('div');
+  toast.className = `toast-item ${kindNorm}`;
+  toast.setAttribute('role', 'alert');
+  toast.innerHTML = `
+    <span class="toast-icon ${kindNorm}">${icons[kindNorm]}</span>
+    <div class="toast-message">
+      <p class="toast-title">${titles[kindNorm]}</p>
+      <p class="toast-desc">${escapeHtml(message)}</p>
+    </div>
+    <button class="toast-close" aria-label="tutup">×</button>
+    <div class="toast-progress" style="animation-duration:${duration}ms; color:${colors[kindNorm]}"></div>
+  `;
+
+  const closeBtn = toast.querySelector('.toast-close');
+  const progressEl = toast.querySelector('.toast-progress');
+  let timer = null;
+  let remaining = duration;
+  let startTime = Date.now();
+
+  function dismiss() {
+    if (toast.classList.contains('out')) return;
+    clearTimeout(timer);
+    toast.classList.add('out');
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 280);
+  }
+  closeBtn.addEventListener('click', dismiss);
+  toast.addEventListener('mouseenter', () => {
+    if (progressEl) progressEl.style.animationPlayState = 'paused';
+    clearTimeout(timer);
+    const elapsed = Date.now() - startTime;
+    remaining = Math.max(0, remaining - elapsed);
+  });
+  toast.addEventListener('mouseleave', () => {
+    if (progressEl) progressEl.style.animationPlayState = 'running';
+    startTime = Date.now();
+    timer = setTimeout(dismiss, remaining);
+  });
+  timer = setTimeout(dismiss, duration);
+  container.appendChild(toast);
+  while (container.children.length > 4) {
+    container.firstElementChild.remove();
+  }
 }
 
 function renderCommitLog(gitLogs) {
@@ -85,7 +139,9 @@ async function downloadExcel() {
 // ---------- tabs ----------
 function switchTab(name) {
   $all('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
-  $all('.view').forEach((v) => v.classList.toggle('hidden', v.id !== `view-${name}`));
+  // Robust: support both .view class and legacy id^=view- selector (fixes routing bug where content stayed on root)
+  const views = document.querySelectorAll('[id^="view-"]');
+  views.forEach((v) => v.classList.toggle('hidden', v.id !== `view-${name}`));
   if (name === 'history') loadHistory();
   if (name === 'settings') loadSettings();
 }
@@ -117,6 +173,7 @@ async function loadStatus() {
     message.className = 'status-error';
     message.textContent = err.message;
     $('#commitLog').replaceChildren(message);
+    showToast(err.message, 'error');
   }
 }
 $('#refreshCommits').addEventListener('click', loadStatus);
@@ -140,7 +197,7 @@ function setGenerateStatus(show, text) {
       $('#generateTimer').textContent = `${sec.toFixed(1)}s`;
       // hint after 8s
       if (sec > 8) txt.textContent = 'masih meracik… (Gemini kadang butuh 5-15 detik)';
-      if (sec > 15) txt.textContent = 'sedikit lagi… coba tunggu, atau cek model di Pengaturan';
+      if (sec > 15) txt.textContent = 'sedikit lagi… coba tunggu';
     }, 200);
   } else {
     box.classList.add('hidden');
@@ -215,9 +272,6 @@ function updateMergePreview() {
     if (hintEl) hintEl.textContent = `Siap gabungkan ${lines.length} commit + catatan → hasil paling akurat ✨ (minimal 5 karakter)`;
   }
 }
-function escapeHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
 
 // Re-generate should repeat last mode
 function setupCharCountListeners() {
@@ -289,7 +343,7 @@ $('#manualForm').addEventListener('submit', async (e) => {
     showDraftForm(false);
     closeManualModal();
     const elapsed = ((Date.now() - generateStart)/1000).toFixed(1);
-    showToast(`Draft gabungan jadi dalam ${elapsed}s — paling akurat ✨`);
+    showToast(`Draft gabungan jadi dalam ${elapsed}s — paling akurat ✨`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -315,7 +369,7 @@ async function runGenerate() {
     $('#fieldKendala').value = data.draft.kendala;
     showDraftForm(false);
     const elapsed = ((Date.now() - generateStart)/1000).toFixed(1);
-    showToast(`Draft dari commit jadi dalam ${elapsed}s ✔`);
+    showToast(`Draft dari commit jadi dalam ${elapsed}s ✔`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -347,7 +401,7 @@ async function runGenerateCombined() {
     $('#fieldKendala').value = data.draft.kendala;
     showDraftForm(false);
     const elapsed = ((Date.now() - generateStart)/1000).toFixed(1);
-    showToast(`Draft gabungan jadi dalam ${elapsed}s — paling akurat ✨`);
+    showToast(`Draft gabungan jadi dalam ${elapsed}s — paling akurat ✨`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -374,7 +428,7 @@ $('#regenerateBtn').addEventListener('click', async () => {
       $('#fieldAktivitas').value = data.draft.aktivitas;
       $('#fieldPembelajaran').value = data.draft.pembelajaran;
       $('#fieldKendala').value = data.draft.kendala;
-      showToast('Draft diperbarui.');
+      showToast('Draft diperbarui.', 'success');
       updateCharCounts();
     } catch (e) { showToast(e.message, 'error'); }
     finally { btn.disabled = false; btn.textContent = orig; setGenerateStatus(false); }
@@ -403,7 +457,7 @@ $('#draftForm').addEventListener('submit', async (e) => {
       }),
     });
     await downloadExcel();
-    showToast('Tersimpan dan Excel berhasil di-download ✔');
+    showToast('Tersimpan dan Excel berhasil di-download ✔', 'success');
     resetDraftForm();
     loadStatus();
   } catch (err) {
@@ -440,13 +494,14 @@ async function loadHistory() {
           <span class="entry-no">#${entry.no}</span>
           <span class="entry-date">${entry.tanggal}</span>
         </div>
-        <div class="entry-preview">${truncate(entry.aktivitas, 140)}</div>
+        <div class="entry-preview">${escapeHtml(truncate(entry.aktivitas, 140))}</div>
       `;
       el.addEventListener('click', () => openEditModal(entry));
       timeline.appendChild(el);
     });
   } catch (err) {
-    timeline.innerHTML = `<p class="muted">${err.message}</p>`;
+    showToast(err.message, 'error');
+    timeline.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>`;
   }
 }
 
@@ -482,7 +537,7 @@ $('#editForm').addEventListener('submit', async (e) => {
         kendala: $('#editKendala').value.trim(),
       }),
     });
-    showToast('Perubahan tersimpan ✔');
+    showToast('Perubahan tersimpan ✔', 'success');
     closeEditModal();
     loadHistory();
   } catch (err) {
@@ -495,7 +550,7 @@ $('#deleteEntryBtn').addEventListener('click', async () => {
   if (!confirm('Hapus entri ini dari logbook? Tindakan ini tidak bisa dibatalkan.')) return;
   try {
     await api(`/api/entries/${editingRow}`, { method: 'DELETE' });
-    showToast('Entri dihapus.');
+    showToast('Entri dihapus.', 'success');
     closeEditModal();
     loadHistory();
   } catch (err) {
@@ -503,39 +558,28 @@ $('#deleteEntryBtn').addEventListener('click', async () => {
   }
 });
 
-// ---------- settings ----------
+// ---------- settings (hanya repo github — disimpan di settings.json) ----------
 async function loadSettings() {
   try {
     const data = await api('/api/settings');
-    $('#settingApiKey').value = '';
-    $('#settingApiKey').placeholder = data.hasApiKey ? data.apiKeyMasked : 'AIza…';
-    $('#apiKeyHint').textContent = data.hasApiKey
-      ? 'Sudah diatur. Isi ulang hanya jika ingin mengganti.'
-      : 'Belum diatur — wajib diisi sebelum generate.';
-    $('#settingRepoPath').value = data.repoPath || '';
-    $('#settingModel').value = data.geminiModel || '';
-    // warn if invalid model
-    const invalid = data.geminiModel === 'gemini-3.6-flash' || data.geminiModel === 'gemini-3-flash';
-    if (invalid) {
-      $('#apiKeyHint').textContent += ' ⚠️ Model tidak valid, ganti ke gemini-2.0-flash biar cepat.';
+    const repoInput = document.getElementById('settingRepoPath');
+    if (repoInput) {
+      repoInput.value = data.repoPath || '';
     }
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
-$('#settingsForm').addEventListener('submit', async (e) => {
+document.getElementById('settingsForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
+  const repoPath = document.getElementById('settingRepoPath')?.value.trim() ?? '';
   try {
     await api('/api/settings', {
       method: 'POST',
-      body: JSON.stringify({
-        apiKey: $('#settingApiKey').value.trim(),
-        repoPath: $('#settingRepoPath').value.trim(),
-        geminiModel: $('#settingModel').value.trim(),
-      }),
+      body: JSON.stringify({ repoPath }),
     });
-    showToast('Pengaturan tersimpan ✔ — model baru akan dipakai di generate berikutnya.');
+    showToast('Repo GitHub tersimpan ✔', 'success');
     loadSettings();
     loadStatus();
   } catch (err) {

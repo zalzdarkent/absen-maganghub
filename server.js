@@ -16,7 +16,7 @@ import {
     saveCache,
     updateEntry,
 } from './lib/logbook.js';
-import { getSettingsForDisplay, saveSettings } from './lib/settings.js';
+import { getEffectiveRepoPath, getSettingsForDisplay, saveSettings } from './lib/settings.js';
 
 dotenv.config();
 
@@ -36,8 +36,8 @@ function todayStrings() {
 // --- Status: git log preview + whether today's logs are already generated ---
 app.get('/api/status', async (req, res) => {
     try {
-        const settings = getSettingsForDisplay();
-        const gitLogs = await getTodayGitLogs(settings.repoPath);
+        const repoPath = getEffectiveRepoPath();
+        const gitLogs = await getTodayGitLogs(repoPath);
         const cache = getCache();
         const { todayDate } = todayStrings();
         const alreadyGenerated = cache.lastDate === todayDate && cache.lastLogs === gitLogs;
@@ -50,8 +50,8 @@ app.get('/api/status', async (req, res) => {
 // --- Generate a draft with Gemini (does NOT save to Excel yet) ---
 app.post('/api/generate', async (req, res) => {
     try {
-        const settings = getSettingsForDisplay();
-        const gitLogs = await getTodayGitLogs(settings.repoPath);
+        const repoPath = getEffectiveRepoPath();
+        const gitLogs = await getTodayGitLogs(repoPath);
         if (!gitLogs) {
             return res.status(400).json({ error: 'Belum ada commit Git hari ini.' });
         }
@@ -86,11 +86,11 @@ app.post('/api/generate-combined', async (req, res) => {
             return res.status(400).json({ error: 'Catatan manual wajib diisi untuk mode gabungan.' });
         }
 
-        const settings = getSettingsForDisplay();
+        const repoPath = getEffectiveRepoPath();
         // Prefer gitLogs sent from client (already displayed), fallback to fresh fetch
         let gitLogs = gitLogsOverride;
         if (gitLogs === null || gitLogs === undefined) {
-            gitLogs = await getTodayGitLogs(settings.repoPath);
+            gitLogs = await getTodayGitLogs(repoPath);
         }
 
         // Allow combined even if no commits — manual notes still useful

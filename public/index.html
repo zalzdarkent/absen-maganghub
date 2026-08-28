@@ -15,11 +15,31 @@
   .dot.warn{background:#d29922}
   .dot.err{background:#f85149}
   .tab.active{color:#0d1117;background:#3fb950;font-weight:600}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-  .toast.success{border-color:#3fb950}
-  .toast.error{border-color:#f85149}
   @keyframes spin{to{transform:rotate(360deg)}}
   .animate-spin{animation:spin .7s linear infinite}
+  /* Toast container & items — Tailwind-styled toaster */
+  .toast-container{position:fixed;top:16px;right:16px;display:flex;flex-direction:column;gap:10px;z-index:60;pointer-events:none;max-width:420px;width:calc(100% - 32px)}
+  @media(max-width:640px){.toast-container{left:16px;right:16px;width:auto;max-width:none}}
+  .toast-item{pointer-events:auto;display:flex;align-items:flex-start;gap:12px;background:#161f29;border:1px solid #24303c;border-left-width:4px;padding:12px 14px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.45);font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1.5;color:#e6edf3;transform:translateX(110%);opacity:0;animation:toastIn 0.32s cubic-bezier(0.16,1,0.3,1) forwards;position:relative;overflow:hidden}
+  .toast-item.out{animation:toastOut 0.28s ease forwards}
+  .toast-item.success{border-left-color:#3fb950}
+  .toast-item.error{border-left-color:#f85149}
+  .toast-item.warning{border-left-color:#d29922}
+  .toast-item.info{border-left-color:#58a6ff}
+  @keyframes toastIn{to{transform:translateX(0);opacity:1}}
+  @keyframes toastOut{from{transform:translateX(0);opacity:1}to{transform:translateX(110%);opacity:0}}
+  .toast-icon{flex-shrink:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:999px;font-size:12px;font-weight:700;margin-top:1px}
+  .toast-icon.success{background:rgba(63,185,80,0.15);color:#3fb950}
+  .toast-icon.error{background:rgba(248,81,73,0.15);color:#f85149}
+  .toast-icon.warning{background:rgba(210,153,34,0.15);color:#d29922}
+  .toast-icon.info{background:rgba(88,166,255,0.15);color:#58a6ff}
+  .toast-message{flex:1;min-width:0;overflow-wrap:anywhere}
+  .toast-title{font-weight:600;font-size:13px;margin:0 0 2px 0}
+  .toast-desc{font-weight:400;font-size:12.5px;color:#8b949e;margin:0}
+  .toast-close{background:none;border:none;color:#8b949e;cursor:pointer;padding:2px 6px;border-radius:6px;font-size:16px;line-height:1;flex-shrink:0}
+  .toast-close:hover{background:#24303c;color:#e6edf3}
+  .toast-progress{position:absolute;bottom:0;left:0;height:2px;background:currentColor;opacity:0.35;border-radius:0 0 0 10px;animation:shrink linear forwards}
+  @keyframes shrink{from{width:100%}to{width:0%}}
   /* JS-generated components — keep pure CSS so Tailwind conversion doesn't break rendering */
   .commit-item{display:grid;grid-template-columns:30px 1fr;gap:10px;padding:12px 14px;border-bottom:1px solid #24303c}
   .commit-item:last-child{border-bottom:none}
@@ -66,7 +86,7 @@
   </header>
 
   <!-- Generate View -->
-  <main class="grid gap-5 grid-cols-1 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] items-start" id="view-generate">
+  <main class="view grid gap-5 grid-cols-1 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] items-start" id="view-generate">
     <!-- Commit Panel -->
     <section class="bg-[#131a22] border border-[#24303c] rounded-[10px] p-[18px_20px]">
       <div class="flex items-center justify-between mb-3.5">
@@ -96,7 +116,7 @@
           <li class="my-0.5"><strong class="text-[#e6edf3]">Commit saja</strong> → klik <em>Generate dari Commit</em>.</li>
           <li class="my-0.5"><strong class="text-[#e6edf3]">Paling akurat ⭐</strong> → klik <em>Merge &amp; Generate ✨</em> lalu isi catatan meeting/belajar.</li>
         </ul>
-        <p class="text-[#8b949e] text-xs m-0 mt-2.5">Tips: model <code class="bg-[#0d1117] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">gemini-3.6-flash</code> (terbaru) paling cepat & stabil. Cek Pengaturan.</p>
+        <p class="text-[#8b949e] text-xs m-0 mt-2.5">Tips: model <code class="bg-[#0d1117] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">gemini-3.6-flash</code> (terbaru) paling cepat & stabil.</p>
       </div>
 
       <div class="hidden flex items-center gap-2.5 px-3.5 py-3 bg-[#161f29] border border-[#24303c] rounded-md font-['IBM_Plex_Mono'] text-[12.5px] text-[#e6edf3] -mb-0.5" id="generateStatus">
@@ -131,7 +151,7 @@
   </main>
 
   <!-- History View -->
-  <main class="hidden grid gap-5" id="view-history">
+  <main class="hidden view grid gap-5" id="view-history">
     <section class="bg-[#131a22] border border-[#24303c] rounded-[10px] p-[18px_20px]">
       <div class="flex items-center justify-between mb-3.5">
         <h2 class="font-['IBM_Plex_Mono'] text-sm lowercase tracking-[0.02em] text-[#8b949e] font-semibold m-0">Riwayat logbook</h2>
@@ -145,32 +165,21 @@
   </main>
 
   <!-- Settings View -->
-  <main class="hidden grid gap-5" id="view-settings">
+  <main class="hidden view grid gap-5" id="view-settings">
     <section class="bg-[#131a22] border border-[#24303c] rounded-[10px] p-[18px_20px]">
       <div class="flex items-center justify-between mb-3.5">
         <h2 class="font-['IBM_Plex_Mono'] text-sm lowercase tracking-[0.02em] text-[#8b949e] font-semibold m-0">Pengaturan</h2>
+        <!-- <span class="font-['IBM_Plex_Mono'] text-[11px] bg-[#24303c] text-[#8b949e] px-2 py-1 rounded-full">settings.json</span> -->
       </div>
-      <form class="flex flex-col gap-3.5" id="settingsForm">
+      <form class="flex flex-col gap-4" id="settingsForm">
+        <!-- <div class="bg-[#0d1117] border border-[#24303c] rounded-md p-3 flex items-start gap-2.5">
+          <span class="text-[#58a6ff] text-sm mt-0.5">ℹ</span>
+          <p class="text-[12.5px] leading-[1.6] text-[#8b949e] m-0">Atur repo GitHub yang ingin dibaca commit-nya. Disimpan di <code class="bg-[#131a22] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">settings.json</code> agar bisa diedit tanpa menyentuh <code class="bg-[#131a22] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">.env</code>.</p>
+        </div> -->
         <label class="flex flex-col gap-1.5">
-          <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">gemini api key</span>
-          <input type="password" id="settingApiKey" placeholder="AIza…" autocomplete="off" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1" />
-          <span class="text-[11.5px] text-[#8b949e]" id="apiKeyHint"></span>
-        </label>
-        <label class="flex flex-col gap-1.5">
-          <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">repo git</span>
-          <input type="text" id="settingRepoPath" placeholder="/home/user/proyek-saya  atau  https://github.com/user/repo.git" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1" />
-          <span class="text-[11.5px] text-[#8b949e]">Isi path folder lokal, atau URL repo GitHub. Repo GitHub dibaca langsung lewat API, tanpa clone/fetch. Kosongkan untuk memakai folder ini.</span>
-        </label>
-        <label class="flex flex-col gap-1.5">
-          <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">model gemini</span>
-          <input type="text" id="settingModel" placeholder="gemini-3.6-flash" list="modelOptions" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1" />
-          <datalist id="modelOptions">
-            <option value="gemini-3.6-flash"></option>
-            <option value="gemini-2.5-flash"></option>
-            <option value="gemini-2.0-flash"></option>
-            <option value="gemini-1.5-flash"></option>
-          </datalist>
-          <span class="text-[11.5px] text-[#8b949e]">Rekomendasi: <code class="bg-[#0d1117] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">gemini-3.6-flash</code> (terbaru, paling stabil & cepat). Jika error, coba <code class="bg-[#0d1117] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">gemini-2.0-flash</code>.</span>
+          <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">repo github</span>
+          <input type="text" id="settingRepoPath" placeholder="https://github.com/username/repo.git  atau  /path/lokal/repo" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1" />
+          <span class="text-[11.5px] text-[#8b949e]">Bisa berupa URL GitHub (https / git@) atau path folder lokal. Kosongkan untuk memakai folder aplikasi ini. Untuk repo privat, isi <code class="bg-[#0d1117] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">GITHUB_TOKEN</code> di <code class="bg-[#0d1117] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">.env</code>.</span>
         </label>
         <div class="flex justify-end gap-2.5 mt-1">
           <button type="submit" class="font-['IBM_Plex_Mono'] text-xs font-semibold rounded-md border border-[#3fb950] px-3.5 py-2 bg-[#3fb950] text-[#04210a] hover:brightness-110 cursor-pointer">simpan pengaturan</button>
@@ -180,8 +189,8 @@
   </main>
 </div>
 
-<!-- Toast -->
-<div class="toast fixed bottom-[22px] left-1/2 -translate-x-1/2 translate-y-5 bg-[#161f29] border border-[#24303c] text-[#e6edf3] font-['IBM_Plex_Mono'] text-[13px] px-[18px] py-2.5 rounded-full opacity-0 pointer-events-none transition duration-200 z-50" id="toast"></div>
+<!-- Toast Container (Tailwind) -->
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
 <!-- Merge Generate modal — menggantikan modal catat manual lama -->
 <div class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-5 z-40" id="manualModalBackdrop">
@@ -191,7 +200,6 @@
       <button class="font-['IBM_Plex_Mono'] text-[11.5px] font-semibold rounded-md border border-[#24303c] px-2.5 py-1.5 bg-transparent text-[#e6edf3] hover:brightness-110 cursor-pointer" id="closeManualModal" type="button">tutup</button>
     </div>
     <form id="manualForm" class="flex flex-col gap-3.5">
-      <!-- <p class="text-[#8b949e] text-xs m-0">Commit tidak merekam meeting / belajar / diskusi. Tulis catatan singkat di bawah, lalu generate gabungan — hasilnya jauh lebih lengkap & humanis.</p> -->
       <div class="flex flex-col gap-1.5">
         <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">commit hari ini <span class="text-[#8b949e] normal-case tracking-normal" id="mergeCommitCount"></span></span>
         <div class="bg-[#0d1117] border border-[#24303c] rounded-md px-2.5 py-2 max-h-[132px] overflow-y-auto flex flex-col gap-1" id="mergeCommitPreview"></div>

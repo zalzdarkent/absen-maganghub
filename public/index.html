@@ -83,7 +83,7 @@
         <div class="form-actions">
           <button type="button" class="btn ghost hidden" id="cancelManualBtn">batal</button>
           <button type="button" class="btn ghost" id="regenerateBtn">generate ulang</button>
-          <button type="submit" class="btn success" id="saveDraftBtn">simpan ke excel</button>
+          <button type="submit" class="btn success" id="saveDraftBtn">simpan &amp; download excel</button>
         </div>
       </form>
     </section>
@@ -115,7 +115,7 @@
         <label class="field">
           <span class="field-label">repo git</span>
           <input type="text" id="settingRepoPath" placeholder="/home/user/proyek-saya  atau  https://github.com/user/repo.git" />
-          <span class="field-hint">Isi path folder lokal, atau URL repo (https/ssh) kalau di-deploy — dashboard akan clone &amp; pull otomatis dari repo tersebut. Kosongkan untuk pakai folder ini.</span>
+          <span class="field-hint">Isi path folder lokal, atau URL repo GitHub. Repo GitHub dibaca langsung lewat API, tanpa clone/fetch. Kosongkan untuk memakai folder ini.</span>
         </label>
         <label class="field">
           <span class="field-label">model gemini</span>

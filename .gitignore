@@ -2,3 +2,4 @@ repo-cache/
 node_modules/
 .env
 Logbook_MagangHub.xlsx
+logbook.json

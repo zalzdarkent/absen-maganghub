@@ -65,6 +65,23 @@ async function api(path, options = {}) {
   }
 }
 
+async function downloadExcel() {
+  const res = await fetch('/api/entries/export');
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'File Excel gagal dibuat.');
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'Logbook_MagangHub.xlsx';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 // ---------- tabs ----------
 function switchTab(name) {
   $all('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
@@ -385,7 +402,8 @@ $('#draftForm').addEventListener('submit', async (e) => {
         ...(state.manualMode ? {} : { gitLogs: state.gitLogs }),
       }),
     });
-    showToast('Tersimpan ke Logbook_MagangHub.xlsx ✔');
+    await downloadExcel();
+    showToast('Tersimpan dan Excel berhasil di-download ✔');
     resetDraftForm();
     loadStatus();
   } catch (err) {
@@ -474,7 +492,7 @@ $('#editForm').addEventListener('submit', async (e) => {
 
 $('#deleteEntryBtn').addEventListener('click', async () => {
   if (!editingRow) return;
-  if (!confirm('Hapus entri ini dari Excel? Tindakan ini tidak bisa dibatalkan.')) return;
+  if (!confirm('Hapus entri ini dari logbook? Tindakan ini tidak bisa dibatalkan.')) return;
   try {
     await api(`/api/entries/${editingRow}`, { method: 'DELETE' });
     showToast('Entri dihapus.');

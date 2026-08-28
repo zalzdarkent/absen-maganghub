@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 
 import {
     appendEntry,
+    createExcelExport,
     deleteEntry,
     generateCombinedWithGemini,
     generateWithGemini,
@@ -33,10 +34,10 @@ function todayStrings() {
 }
 
 // --- Status: git log preview + whether today's logs are already generated ---
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
     try {
         const settings = getSettingsForDisplay();
-        const gitLogs = getTodayGitLogs(settings.repoPath);
+        const gitLogs = await getTodayGitLogs(settings.repoPath);
         const cache = getCache();
         const { todayDate } = todayStrings();
         const alreadyGenerated = cache.lastDate === todayDate && cache.lastLogs === gitLogs;
@@ -50,7 +51,7 @@ app.get('/api/status', (req, res) => {
 app.post('/api/generate', async (req, res) => {
     try {
         const settings = getSettingsForDisplay();
-        const gitLogs = getTodayGitLogs(settings.repoPath);
+        const gitLogs = await getTodayGitLogs(settings.repoPath);
         if (!gitLogs) {
             return res.status(400).json({ error: 'Belum ada commit Git hari ini.' });
         }
@@ -89,7 +90,7 @@ app.post('/api/generate-combined', async (req, res) => {
         // Prefer gitLogs sent from client (already displayed), fallback to fresh fetch
         let gitLogs = gitLogsOverride;
         if (gitLogs === null || gitLogs === undefined) {
-            gitLogs = getTodayGitLogs(settings.repoPath);
+            gitLogs = await getTodayGitLogs(settings.repoPath);
         }
 
         // Allow combined even if no commits — manual notes still useful
@@ -122,6 +123,17 @@ app.get('/api/entries', async (req, res) => {
     try {
         const entries = await readEntries();
         res.json({ entries });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/entries/export', async (req, res) => {
+    try {
+        const buffer = await createExcelExport();
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="Logbook_MagangHub.xlsx"');
+        res.send(Buffer.from(buffer));
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -5,187 +5,232 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Logbook MagangHub — Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="style.css" />
+<style>
+  *{box-sizing:border-box}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+  .hidden{display:none !important}
+  .dot.ok{background:#3fb950;box-shadow:0 0 6px #3fb950}
+  .dot.warn{background:#d29922}
+  .dot.err{background:#f85149}
+  .tab.active{color:#0d1117;background:#3fb950;font-weight:600}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.success{border-color:#3fb950}
+  .toast.error{border-color:#f85149}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .animate-spin{animation:spin .7s linear infinite}
+  /* JS-generated components — keep pure CSS so Tailwind conversion doesn't break rendering */
+  .commit-item{display:grid;grid-template-columns:30px 1fr;gap:10px;padding:12px 14px;border-bottom:1px solid #24303c}
+  .commit-item:last-child{border-bottom:none}
+  .commit-item:hover{background:#161f29}
+  .commit-index{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#3fb950;padding-top:2px}
+  .commit-content{min-width:0;display:flex;flex-direction:column;gap:5px}
+  .commit-message{font-size:12.5px;line-height:1.45;font-weight:500;overflow-wrap:anywhere}
+  .commit-author{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8b949e}
+  .status-error{margin:0;padding:14px;color:#ffb4ab;background:#4a2a2a;border-left:3px solid #f85149;font-size:12.5px;line-height:1.55}
+  .timeline{position:relative;padding-left:22px;display:flex;flex-direction:column;gap:0}
+  .timeline::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:#24303c}
+  .entry{position:relative;padding:14px 0 14px 20px;border-bottom:1px solid #24303c;cursor:pointer}
+  .entry:last-child{border-bottom:none}
+  .entry::before{content:'';position:absolute;left:-22px;top:20px;width:10px;height:10px;border-radius:50%;background:#0d1117;border:2px solid #3fb950}
+  .entry-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+  .entry-no{font-family:'IBM Plex Mono',monospace;color:#8b949e;font-size:12px}
+  .entry-date{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13.5px}
+  .entry-preview{font-size:13px;color:#8b949e;max-width:640px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .entry:hover{background:#161f29;border-radius:6px}
+  .muted{color:#8b949e;font-size:13px}
+  .merge-commit-line{font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.45;color:#e6edf3;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.06);overflow-wrap:anywhere}
+  .merge-commit-line:last-child{border-bottom:none}
+</style>
 </head>
-<body>
+<body class="m-0 min-h-screen bg-[#0d1117] text-[#e6edf3] font-[Inter,system-ui,sans-serif]">
 
-<div class="app">
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-prompt">$</span>
-      <span class="brand-text">logbook<span class="brand-dim">@maganghub</span></span>
+<div class="max-w-[1320px] w-[min(1320px,calc(100%-2.5rem))] xl:w-[min(1360px,calc(100%-3.5rem))] max-[600px]:!w-[calc(100%-1.5rem)] mx-auto px-7 py-6 pb-16 max-[600px]:px-3.5 max-[600px]:py-3.5 flex flex-col gap-6">
+
+  <!-- Topbar -->
+  <header class="flex flex-wrap items-center gap-5 pb-4 border-b border-[#24303c]">
+    <div class="flex items-baseline gap-2 font-['IBM_Plex_Mono'] font-semibold text-[17px]">
+      <span class="text-[#3fb950]">$</span>
+      <span>logbook<span class="text-[#8b949e] font-normal">@maganghub</span></span>
     </div>
-    <nav class="tabs" id="tabs">
-      <button class="tab active" data-tab="generate">generate</button>
-      <button class="tab" data-tab="history">riwayat</button>
-      <button class="tab" data-tab="settings">pengaturan</button>
+    <nav class="flex gap-1 ml-auto max-[600px]:ml-0 max-[600px]:w-full max-[600px]:order-3" id="tabs">
+      <button class="tab active font-['IBM_Plex_Mono'] text-[13px] border border-transparent text-[#8b949e] px-3.5 py-[7px] rounded-md cursor-pointer hover:text-[#e6edf3] hover:border-[#24303c] transition" data-tab="generate">generate</button>
+      <button class="tab font-['IBM_Plex_Mono'] text-[13px] border border-transparent text-[#8b949e] px-3.5 py-[7px] rounded-md cursor-pointer hover:text-[#e6edf3] hover:border-[#24303c] transition" data-tab="history">riwayat</button>
+      <button class="tab font-['IBM_Plex_Mono'] text-[13px] border border-transparent text-[#8b949e] px-3.5 py-[7px] rounded-md cursor-pointer hover:text-[#e6edf3] hover:border-[#24303c] transition" data-tab="settings">pengaturan</button>
     </nav>
-    <div class="status-pill" id="statusPill">
-      <span class="dot" id="statusDot"></span>
+    <div class="flex items-center gap-1.5 font-['IBM_Plex_Mono'] text-xs text-[#8b949e] border border-[#24303c] px-2.5 py-1.5 rounded-full max-[600px]:order-2" id="statusPill">
+      <span class="dot w-[7px] h-[7px] rounded-full bg-[#8b949e] shrink-0" id="statusDot"></span>
       <span id="statusText">memeriksa…</span>
     </div>
   </header>
 
-  <main class="view" id="view-generate">
-    <section class="panel commit-panel">
-      <div class="panel-head">
-        <h2>Commit hari ini</h2>
-        <button class="btn ghost small" id="refreshCommits">refresh</button>
+  <!-- Generate View -->
+  <main class="grid gap-5 grid-cols-1 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] items-start" id="view-generate">
+    <!-- Commit Panel -->
+    <section class="bg-[#131a22] border border-[#24303c] rounded-[10px] p-[18px_20px]">
+      <div class="flex items-center justify-between mb-3.5">
+        <h2 class="font-['IBM_Plex_Mono'] text-sm lowercase tracking-[0.02em] text-[#8b949e] font-semibold m-0">commit hari ini</h2>
+        <button class="font-['IBM_Plex_Mono'] text-[11.5px] font-semibold rounded-md border border-[#24303c] px-2.5 py-1.5 bg-transparent text-[#e6edf3] hover:brightness-110 cursor-pointer" id="refreshCommits">refresh</button>
       </div>
-      <div class="commit-list" id="commitLog" aria-live="polite">
-        <p class="muted">Memuat commit…</p>
+      <div class="bg-[#0d1117] border border-[#24303c] rounded-md py-1 max-h-[420px] overflow-y-auto" id="commitLog" aria-live="polite">
+        <p class="text-[#8b949e] text-[13px] px-3.5 py-2">Memuat commit…</p>
       </div>
     </section>
 
-    <section class="panel draft-panel">
-      <div class="panel-head">
-        <h2>Draft logbook</h2>
-        <div class="panel-actions">
-          <button class="btn ghost" id="manualBtn" type="button">Merge &amp; Generate ✨</button>
-          <button class="btn primary" id="generateBtn" type="button">
+    <!-- Draft Panel -->
+    <section class="bg-[#131a22] border border-[#24303c] rounded-[10px] p-[18px_20px]">
+      <div class="flex items-center justify-between mb-3.5 flex-wrap gap-2.5 max-[560px]:items-start">
+        <h2 class="font-['IBM_Plex_Mono'] text-sm lowercase tracking-[0.02em] text-[#8b949e] font-semibold m-0">draft logbook</h2>
+        <div class="flex items-center gap-2 max-[560px]:w-full max-[560px]:justify-end">
+          <button class="font-['IBM_Plex_Mono'] text-xs font-semibold rounded-md border border-[#24303c] px-3.5 py-2 bg-transparent text-[#e6edf3] hover:brightness-110 cursor-pointer" id="manualBtn" type="button">Merge &amp; Generate ✨</button>
+          <button class="font-['IBM_Plex_Mono'] text-xs font-semibold rounded-md border border-[#58a6ff] px-3.5 py-2 bg-[#58a6ff] text-[#04121f] hover:brightness-110 cursor-pointer" id="generateBtn" type="button">
             <span class="btn-label">Generate dari Commit</span>
           </button>
         </div>
       </div>
 
-      <div class="draft-empty" id="draftEmpty">
-        <p>Belum ada draft.</p>
-        <ul class="draft-hints">
-          <li><strong>Commit saja</strong> → klik <em>Generate dari Commit</em>.</li>
-          <li><strong>Paling akurat ⭐</strong> → klik <em>Merge &amp; Generate ✨</em> lalu isi catatan meeting/belajar.</li>
+      <div class="text-[#8b949e] text-[13.5px] px-3.5 py-[22px] text-center border border-dashed border-[#24303c] rounded-md flex flex-col gap-2.5 items-center" id="draftEmpty">
+        <p class="m-0">Belum ada draft.</p>
+        <ul class="text-left m-0 pl-[18px] text-[12.5px] leading-[1.6] text-[#8b949e] list-disc">
+          <li class="my-0.5"><strong class="text-[#e6edf3]">Commit saja</strong> → klik <em>Generate dari Commit</em>.</li>
+          <li class="my-0.5"><strong class="text-[#e6edf3]">Paling akurat ⭐</strong> → klik <em>Merge &amp; Generate ✨</em> lalu isi catatan meeting/belajar.</li>
         </ul>
-        <p class="muted small" style="margin-top:10px">Tips: model <code>gemini-3.6-flash</code> (terbaru) paling cepat & stabil. Cek Pengaturan.</p>
+        <p class="text-[#8b949e] text-xs m-0 mt-2.5">Tips: model <code class="bg-[#0d1117] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">gemini-3.6-flash</code> (terbaru) paling cepat & stabil. Cek Pengaturan.</p>
       </div>
 
-      <div class="generate-status hidden" id="generateStatus">
-        <span class="spinner"></span>
+      <div class="hidden flex items-center gap-2.5 px-3.5 py-3 bg-[#161f29] border border-[#24303c] rounded-md font-['IBM_Plex_Mono'] text-[12.5px] text-[#e6edf3] -mb-0.5" id="generateStatus">
+        <span class="w-3.5 h-3.5 border-2 border-[#24303c] border-t-[#58a6ff] rounded-full animate-spin shrink-0"></span>
         <span id="generateStatusText">meracik draft…</span>
-        <span class="muted small" id="generateTimer"></span>
+        <span class="text-[#8b949e] text-xs ml-auto font-['IBM_Plex_Mono']" id="generateTimer"></span>
       </div>
 
-      <form class="draft-form hidden" id="draftForm">
-        <label class="field">
-          <span class="field-label">aktivitas</span>
-          <textarea id="fieldAktivitas" rows="5"></textarea>
-          <span class="char-count" id="countAktivitas"></span>
+      <form class="hidden flex flex-col gap-3.5" id="draftForm">
+        <label class="flex flex-col gap-1.5">
+          <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">aktivitas</span>
+          <textarea id="fieldAktivitas" rows="5" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 resize-y focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1"></textarea>
+          <span class="font-['IBM_Plex_Mono'] text-[10.5px] text-right -mt-0.5 text-[#8b949e]" id="countAktivitas"></span>
         </label>
-        <label class="field">
-          <span class="field-label">pembelajaran</span>
-          <textarea id="fieldPembelajaran" rows="5"></textarea>
-          <span class="char-count" id="countPembelajaran"></span>
+        <label class="flex flex-col gap-1.5">
+          <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">pembelajaran</span>
+          <textarea id="fieldPembelajaran" rows="5" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 resize-y focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1"></textarea>
+          <span class="font-['IBM_Plex_Mono'] text-[10.5px] text-right -mt-0.5 text-[#8b949e]" id="countPembelajaran"></span>
         </label>
-        <label class="field">
-          <span class="field-label">kendala</span>
-          <textarea id="fieldKendala" rows="5"></textarea>
-          <span class="char-count" id="countKendala"></span>
+        <label class="flex flex-col gap-1.5">
+          <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">kendala</span>
+          <textarea id="fieldKendala" rows="5" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 resize-y focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1"></textarea>
+          <span class="font-['IBM_Plex_Mono'] text-[10.5px] text-right -mt-0.5 text-[#8b949e]" id="countKendala"></span>
         </label>
-        <div class="form-actions">
-          <button type="button" class="btn ghost hidden" id="cancelManualBtn">batal</button>
-          <button type="button" class="btn ghost" id="regenerateBtn">generate ulang</button>
-          <button type="submit" class="btn success" id="saveDraftBtn">simpan &amp; download excel</button>
+        <div class="flex justify-end gap-2.5 mt-1 flex-wrap">
+          <button type="button" class="hidden font-['IBM_Plex_Mono'] text-xs font-semibold rounded-md border border-[#24303c] px-3.5 py-2 bg-transparent text-[#e6edf3] hover:brightness-110 cursor-pointer" id="cancelManualBtn">batal</button>
+          <button type="button" class="font-['IBM_Plex_Mono'] text-xs font-semibold rounded-md border border-[#24303c] px-3.5 py-2 bg-transparent text-[#e6edf3] hover:brightness-110 cursor-pointer" id="regenerateBtn">generate ulang</button>
+          <button type="submit" class="font-['IBM_Plex_Mono'] text-xs font-semibold rounded-md border border-[#3fb950] px-3.5 py-2 bg-[#3fb950] text-[#04210a] hover:brightness-110 cursor-pointer" id="saveDraftBtn">simpan &amp; download excel</button>
         </div>
       </form>
     </section>
   </main>
 
-  <main class="view hidden" id="view-history">
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Riwayat logbook</h2>
-        <span class="muted" id="entryCount"></span>
+  <!-- History View -->
+  <main class="hidden grid gap-5" id="view-history">
+    <section class="bg-[#131a22] border border-[#24303c] rounded-[10px] p-[18px_20px]">
+      <div class="flex items-center justify-between mb-3.5">
+        <h2 class="font-['IBM_Plex_Mono'] text-sm lowercase tracking-[0.02em] text-[#8b949e] font-semibold m-0">Riwayat logbook</h2>
+        <span class="text-[#8b949e] text-[13px]" id="entryCount"></span>
       </div>
-      <div class="timeline" id="timeline">
-        <p class="muted">Memuat riwayat…</p>
+      <div class="relative pl-[22px] flex flex-col gap-0" id="timeline">
+        <div class="absolute left-[5px] top-1.5 bottom-1.5 w-0.5 bg-[#24303c]"></div>
+        <p class="text-[#8b949e] text-[13px]">Memuat riwayat…</p>
       </div>
     </section>
   </main>
 
-  <main class="view hidden" id="view-settings">
-    <section class="panel settings-panel">
-      <div class="panel-head">
-        <h2>Pengaturan</h2>
+  <!-- Settings View -->
+  <main class="hidden grid gap-5" id="view-settings">
+    <section class="bg-[#131a22] border border-[#24303c] rounded-[10px] p-[18px_20px]">
+      <div class="flex items-center justify-between mb-3.5">
+        <h2 class="font-['IBM_Plex_Mono'] text-sm lowercase tracking-[0.02em] text-[#8b949e] font-semibold m-0">Pengaturan</h2>
       </div>
-      <form class="draft-form" id="settingsForm">
-        <label class="field">
-          <span class="field-label">gemini api key</span>
-          <input type="password" id="settingApiKey" placeholder="AIza…" autocomplete="off" />
-          <span class="field-hint" id="apiKeyHint"></span>
+      <form class="flex flex-col gap-3.5" id="settingsForm">
+        <label class="flex flex-col gap-1.5">
+          <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">gemini api key</span>
+          <input type="password" id="settingApiKey" placeholder="AIza…" autocomplete="off" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1" />
+          <span class="text-[11.5px] text-[#8b949e]" id="apiKeyHint"></span>
         </label>
-        <label class="field">
-          <span class="field-label">repo git</span>
-          <input type="text" id="settingRepoPath" placeholder="/home/user/proyek-saya  atau  https://github.com/user/repo.git" />
-          <span class="field-hint">Isi path folder lokal, atau URL repo GitHub. Repo GitHub dibaca langsung lewat API, tanpa clone/fetch. Kosongkan untuk memakai folder ini.</span>
+        <label class="flex flex-col gap-1.5">
+          <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">repo git</span>
+          <input type="text" id="settingRepoPath" placeholder="/home/user/proyek-saya  atau  https://github.com/user/repo.git" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1" />
+          <span class="text-[11.5px] text-[#8b949e]">Isi path folder lokal, atau URL repo GitHub. Repo GitHub dibaca langsung lewat API, tanpa clone/fetch. Kosongkan untuk memakai folder ini.</span>
         </label>
-        <label class="field">
-          <span class="field-label">model gemini</span>
-          <input type="text" id="settingModel" placeholder="gemini-3.6-flash" list="modelOptions" />
+        <label class="flex flex-col gap-1.5">
+          <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">model gemini</span>
+          <input type="text" id="settingModel" placeholder="gemini-3.6-flash" list="modelOptions" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1" />
           <datalist id="modelOptions">
             <option value="gemini-3.6-flash"></option>
             <option value="gemini-2.5-flash"></option>
             <option value="gemini-2.0-flash"></option>
             <option value="gemini-1.5-flash"></option>
           </datalist>
-          <span class="field-hint">Rekomendasi: <code>gemini-3.6-flash</code> (terbaru, paling stabil & cepat). Jika error, coba <code>gemini-2.0-flash</code>.</span>
+          <span class="text-[11.5px] text-[#8b949e]">Rekomendasi: <code class="bg-[#0d1117] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">gemini-3.6-flash</code> (terbaru, paling stabil & cepat). Jika error, coba <code class="bg-[#0d1117] border border-[#24303c] px-1 py-0.5 rounded text-[11px]">gemini-2.0-flash</code>.</span>
         </label>
-        <div class="form-actions">
-          <button type="submit" class="btn success">simpan pengaturan</button>
+        <div class="flex justify-end gap-2.5 mt-1">
+          <button type="submit" class="font-['IBM_Plex_Mono'] text-xs font-semibold rounded-md border border-[#3fb950] px-3.5 py-2 bg-[#3fb950] text-[#04210a] hover:brightness-110 cursor-pointer">simpan pengaturan</button>
         </div>
       </form>
     </section>
   </main>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- Toast -->
+<div class="toast fixed bottom-[22px] left-1/2 -translate-x-1/2 translate-y-5 bg-[#161f29] border border-[#24303c] text-[#e6edf3] font-['IBM_Plex_Mono'] text-[13px] px-[18px] py-2.5 rounded-full opacity-0 pointer-events-none transition duration-200 z-50" id="toast"></div>
 
 <!-- Merge Generate modal — menggantikan modal catat manual lama -->
-<div class="modal-backdrop hidden" id="manualModalBackdrop">
-  <div class="modal manual-modal">
-    <div class="modal-head">
-      <h3><span class="combined-badge">✨ Rekomendasi</span> Gabungkan biar AI lebih akurat</h3>
-      <button class="btn ghost small" id="closeManualModal" type="button">tutup</button>
+<div class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-5 z-40" id="manualModalBackdrop">
+  <div class="bg-[#131a22] border border-[#24303c] rounded-[10px] p-5 w-full max-w-[560px] max-h-[86vh] overflow-y-auto">
+    <div class="flex justify-between items-center mb-3.5">
+      <h3 class="font-['IBM_Plex_Mono'] text-sm font-semibold m-0 flex items-center gap-1.5 flex-wrap"><span class="font-['IBM_Plex_Mono'] text-[10px] font-bold tracking-[0.05em] uppercase bg-[#58a6ff] text-[#04121f] px-[7px] py-0.5 rounded-full whitespace-nowrap">✨ Rekomendasi</span> Gabungkan biar AI lebih akurat</h3>
+      <button class="font-['IBM_Plex_Mono'] text-[11.5px] font-semibold rounded-md border border-[#24303c] px-2.5 py-1.5 bg-transparent text-[#e6edf3] hover:brightness-110 cursor-pointer" id="closeManualModal" type="button">tutup</button>
     </div>
-    <form id="manualForm">
-      <p class="muted small" style="margin:0 0 10px">Commit tidak merekam meeting / belajar / diskusi. Tulis catatan singkat di bawah, lalu generate gabungan — hasilnya jauh lebih lengkap & humanis.</p>
-      <div class="field">
-        <span class="field-label">commit hari ini <span class="muted" id="mergeCommitCount"></span></span>
-        <div class="commit-preview-box" id="mergeCommitPreview"></div>
+    <form id="manualForm" class="flex flex-col gap-3.5">
+      <!-- <p class="text-[#8b949e] text-xs m-0">Commit tidak merekam meeting / belajar / diskusi. Tulis catatan singkat di bawah, lalu generate gabungan — hasilnya jauh lebih lengkap & humanis.</p> -->
+      <div class="flex flex-col gap-1.5">
+        <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">commit hari ini <span class="text-[#8b949e] normal-case tracking-normal" id="mergeCommitCount"></span></span>
+        <div class="bg-[#0d1117] border border-[#24303c] rounded-md px-2.5 py-2 max-h-[132px] overflow-y-auto flex flex-col gap-1" id="mergeCommitPreview"></div>
       </div>
-      <label class="field">
-        <span class="field-label">catatan tambahan</span>
-        <textarea id="manualDescription" rows="4" placeholder="Contoh: Selain itu juga mengikuti meeting dengan enduser terkait progress dan juga kevalidan data, dan 1 dashboard sudah bisa digunakan pada tanggal 1, dashboard yang lain tinggal..."></textarea>
-        <span class="field-hint" id="mergeHint">Minimal 5 karakter. Jika kosong & ada commit, tetap bisa generate dari commit saja — tapi isi catatan bikin hasil paling akurat.</span>
+      <label class="flex flex-col gap-1.5">
+        <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">catatan tambahan</span>
+        <textarea id="manualDescription" rows="4" placeholder="Contoh: Selain itu juga mengikuti meeting dengan enduser terkait progress dan juga kevalidan data, dan 1 dashboard sudah bisa digunakan pada tanggal 1, dashboard yang lain tinggal..." class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 resize-y focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1"></textarea>
+        <span class="text-[11.5px] text-[#8b949e]" id="mergeHint">Minimal 5 karakter. Jika kosong & ada commit, tetap bisa generate dari commit saja — tapi isi catatan bikin hasil paling akurat.</span>
       </label>
-      <div class="form-actions">
-        <button type="submit" class="btn primary" id="tellAiBtn">Gabungkan &amp; Generate ✨</button>
+      <div class="flex justify-end gap-2.5 mt-1">
+        <button type="submit" class="font-['IBM_Plex_Mono'] text-xs font-semibold rounded-md border border-[#58a6ff] px-3.5 py-2 bg-[#58a6ff] text-[#04121f] hover:brightness-110 cursor-pointer" id="tellAiBtn">Gabungkan &amp; Generate ✨</button>
       </div>
     </form>
   </div>
 </div>
 
 <!-- Edit entry modal -->
-<div class="modal-backdrop hidden" id="editModalBackdrop">
-  <div class="modal">
-    <div class="modal-head">
-      <h3>Edit entri — <span id="editModalDate"></span></h3>
-      <button class="btn ghost small" id="closeModal">tutup</button>
+<div class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-5 z-40" id="editModalBackdrop">
+  <div class="bg-[#131a22] border border-[#24303c] rounded-[10px] p-5 w-full max-w-[620px] max-h-[86vh] overflow-y-auto">
+    <div class="flex justify-between items-center mb-3.5">
+      <h3 class="font-['IBM_Plex_Mono'] text-sm font-semibold m-0">Edit entri — <span id="editModalDate"></span></h3>
+      <button class="font-['IBM_Plex_Mono'] text-[11.5px] font-semibold rounded-md border border-[#24303c] px-2.5 py-1.5 bg-transparent text-[#e6edf3] hover:brightness-110 cursor-pointer" id="closeModal">tutup</button>
     </div>
-    <form id="editForm">
-      <label class="field">
-        <span class="field-label">aktivitas</span>
-        <textarea id="editAktivitas" rows="4"></textarea>
+    <form id="editForm" class="flex flex-col gap-3.5">
+      <label class="flex flex-col gap-1.5">
+        <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">aktivitas</span>
+        <textarea id="editAktivitas" rows="4" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 resize-y focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1"></textarea>
       </label>
-      <label class="field">
-        <span class="field-label">pembelajaran</span>
-        <textarea id="editPembelajaran" rows="4"></textarea>
+      <label class="flex flex-col gap-1.5">
+        <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">pembelajaran</span>
+        <textarea id="editPembelajaran" rows="4" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 resize-y focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1"></textarea>
       </label>
-      <label class="field">
-        <span class="field-label">kendala</span>
-        <textarea id="editKendala" rows="4"></textarea>
+      <label class="flex flex-col gap-1.5">
+        <span class="font-['IBM_Plex_Mono'] text-[11px] uppercase tracking-[0.06em] text-[#8b949e]">kendala</span>
+        <textarea id="editKendala" rows="4" class="font-[Inter] text-[13.5px] leading-[1.5] bg-[#0d1117] border border-[#24303c] rounded-md text-[#e6edf3] px-3 py-2.5 resize-y focus:outline-2 focus:outline-[#58a6ff] focus:outline-offset-1"></textarea>
       </label>
-      <div class="form-actions">
-        <button type="button" class="btn danger" id="deleteEntryBtn">hapus entri</button>
-        <button type="submit" class="btn success">simpan perubahan</button>
+      <div class="flex justify-between gap-2.5 mt-1 flex-wrap">
+        <button type="button" class="font-['IBM_Plex_Mono'] text-xs font-semibold rounded-md border border-[#f85149] text-[#f85149] bg-transparent px-3.5 py-2 hover:brightness-110 cursor-pointer" id="deleteEntryBtn">hapus entri</button>
+        <button type="submit" class="font-['IBM_Plex_Mono'] text-xs font-semibold rounded-md border border-[#3fb950] px-3.5 py-2 bg-[#3fb950] text-[#04210a] hover:brightness-110 cursor-pointer">simpan perubahan</button>
       </div>
     </form>
   </div>

@@ -31,9 +31,10 @@ html, body {
 }
 
 .app {
-  max-width: 980px;
+  max-width: 1320px;
+  width: min(1320px, calc(100% - 40px));
   margin: 0 auto;
-  padding: 20px 20px 64px;
+  padding: 24px 28px 64px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -106,7 +107,11 @@ html, body {
 }
 #view-generate { grid-template-columns: 1fr; }
 @media (min-width: 820px) {
-  #view-generate { grid-template-columns: 320px 1fr; align-items: start; }
+  #view-generate { grid-template-columns: 380px 1fr; align-items: start; }
+}
+@media (min-width: 1160px) {
+  #view-generate { grid-template-columns: 420px 1fr; }
+  .app { width: min(1360px, calc(100% - 56px)); }
 }
 .hidden { display: none !important; }
 
@@ -203,14 +208,119 @@ html, body {
 .btn.danger { background: transparent; border-color: var(--red); color: var(--red); }
 .btn.ghost { background: transparent; }
 
+/* ---------- Combined box (gabungan) ---------- */
+.combined-box {
+  margin-top: 16px;
+  background: linear-gradient(135deg, rgba(88,166,255,0.08), rgba(63,185,80,0.06));
+  border: 1px solid rgba(88,166,255,0.22);
+  border-radius: 10px;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.combined-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.combined-head strong { font-size: 12.5px; }
+.combined-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--blue);
+  color: #04121f;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.combined-box .muted.small { font-size: 11.5px; line-height: 1.45; margin: 0; }
+.combined-box .btn.full { width: 100%; justify-content: center; }
+.combined-box textarea {
+  background: var(--bg);
+  min-height: 72px;
+}
+.commit-preview-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  max-height: 132px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.merge-commit-line {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text);
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  overflow-wrap: anywhere;
+}
+.merge-commit-line:last-child { border-bottom: none; }
+.modal-head h3 .combined-badge {
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.generate-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
+  margin-bottom: -2px;
+}
+.generate-status .muted.small { margin-left: auto; font-family: var(--mono); }
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ---------- Draft form ---------- */
 .draft-empty {
   color: var(--muted);
   font-size: 13.5px;
-  padding: 30px 10px;
+  padding: 22px 14px;
   text-align: center;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+.draft-hints {
+  text-align: left;
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.draft-hints li { margin: 2px 0; }
+.draft-hints strong { color: var(--text); }
+.char-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-align: right;
+  margin-top: -2px;
 }
 .draft-form { display: flex; flex-direction: column; gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
@@ -357,7 +467,7 @@ textarea:focus, input:focus {
 }
 
 @media (max-width: 600px) {
-  .app { padding: 14px 14px 48px; }
+  .app { width: calc(100% - 24px); padding: 14px 14px 48px; }
   .tabs { margin-left: 0; order: 3; width: 100%; }
   .status-pill { order: 2; }
 }

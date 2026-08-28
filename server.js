@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import {
     appendEntry,
     deleteEntry,
+    generateCombinedWithGemini,
     generateWithGemini,
     generateManualWithGemini,
     getCache,
@@ -69,6 +70,32 @@ app.post('/api/generate-manual', async (req, res) => {
         }
         const draft = await generateManualWithGemini(description);
         res.json({ draft });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Generate a draft by COMBINING commit logs + manual notes (new!) ---
+app.post('/api/generate-combined', async (req, res) => {
+    try {
+        const manualNotes = String(req.body.manualNotes || req.body.description || '').trim();
+        const gitLogsOverride = typeof req.body.gitLogs === 'string' ? req.body.gitLogs.trim() : null;
+
+        if (!manualNotes) {
+            return res.status(400).json({ error: 'Catatan manual wajib diisi untuk mode gabungan.' });
+        }
+
+        const settings = getSettingsForDisplay();
+        // Prefer gitLogs sent from client (already displayed), fallback to fresh fetch
+        let gitLogs = gitLogsOverride;
+        if (gitLogs === null || gitLogs === undefined) {
+            gitLogs = getTodayGitLogs(settings.repoPath);
+        }
+
+        // Allow combined even if no commits — manual notes still useful
+        // but inform AI that commits empty
+        const draft = await generateCombinedWithGemini(gitLogs || '', manualNotes);
+        res.json({ draft, gitLogs: gitLogs || '' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

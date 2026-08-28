@@ -42,29 +42,43 @@
       <div class="panel-head">
         <h2>Draft logbook</h2>
         <div class="panel-actions">
-          <button class="btn ghost" id="manualBtn" type="button">catat manual</button>
+          <button class="btn ghost" id="manualBtn" type="button">Merge &amp; Generate ✨</button>
           <button class="btn primary" id="generateBtn" type="button">
-            <span class="btn-label">Generate berdasarkan Commit</span>
+            <span class="btn-label">Generate dari Commit</span>
           </button>
         </div>
       </div>
 
       <div class="draft-empty" id="draftEmpty">
-        <p>Belum ada draft. Generate dari commit, atau catat meeting dan aktivitas lain secara manual.</p>
+        <p>Belum ada draft.</p>
+        <ul class="draft-hints">
+          <li><strong>Commit saja</strong> → klik <em>Generate dari Commit</em>.</li>
+          <li><strong>Paling akurat ⭐</strong> → klik <em>Merge &amp; Generate ✨</em> lalu isi catatan meeting/belajar.</li>
+        </ul>
+        <p class="muted small" style="margin-top:10px">Tips: model <code>gemini-3.6-flash</code> (terbaru) paling cepat & stabil. Cek Pengaturan.</p>
+      </div>
+
+      <div class="generate-status hidden" id="generateStatus">
+        <span class="spinner"></span>
+        <span id="generateStatusText">meracik draft…</span>
+        <span class="muted small" id="generateTimer"></span>
       </div>
 
       <form class="draft-form hidden" id="draftForm">
         <label class="field">
           <span class="field-label">aktivitas</span>
           <textarea id="fieldAktivitas" rows="5"></textarea>
+          <span class="char-count" id="countAktivitas"></span>
         </label>
         <label class="field">
           <span class="field-label">pembelajaran</span>
           <textarea id="fieldPembelajaran" rows="5"></textarea>
+          <span class="char-count" id="countPembelajaran"></span>
         </label>
         <label class="field">
           <span class="field-label">kendala</span>
           <textarea id="fieldKendala" rows="5"></textarea>
+          <span class="char-count" id="countKendala"></span>
         </label>
         <div class="form-actions">
           <button type="button" class="btn ghost hidden" id="cancelManualBtn">batal</button>
@@ -105,7 +119,14 @@
         </label>
         <label class="field">
           <span class="field-label">model gemini</span>
-          <input type="text" id="settingModel" placeholder="gemini-3.6-flash" />
+          <input type="text" id="settingModel" placeholder="gemini-3.6-flash" list="modelOptions" />
+          <datalist id="modelOptions">
+            <option value="gemini-3.6-flash"></option>
+            <option value="gemini-2.5-flash"></option>
+            <option value="gemini-2.0-flash"></option>
+            <option value="gemini-1.5-flash"></option>
+          </datalist>
+          <span class="field-hint">Rekomendasi: <code>gemini-3.6-flash</code> (terbaru, paling stabil & cepat). Jika error, coba <code>gemini-2.0-flash</code>.</span>
         </label>
         <div class="form-actions">
           <button type="submit" class="btn success">simpan pengaturan</button>
@@ -117,21 +138,26 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- Manual activity prompt modal -->
+<!-- Merge Generate modal — menggantikan modal catat manual lama -->
 <div class="modal-backdrop hidden" id="manualModalBackdrop">
   <div class="modal manual-modal">
     <div class="modal-head">
-      <h3>Catat kegiatan hari ini</h3>
+      <h3><span class="combined-badge">✨ Rekomendasi</span> Gabungkan biar AI lebih akurat</h3>
       <button class="btn ghost small" id="closeManualModal" type="button">tutup</button>
     </div>
     <form id="manualForm">
+      <p class="muted small" style="margin:0 0 10px">Commit tidak merekam meeting / belajar / diskusi. Tulis catatan singkat di bawah, lalu generate gabungan — hasilnya jauh lebih lengkap & humanis.</p>
+      <div class="field">
+        <span class="field-label">commit hari ini <span class="muted" id="mergeCommitCount"></span></span>
+        <div class="commit-preview-box" id="mergeCommitPreview"></div>
+      </div>
       <label class="field">
-        <span class="field-label">deskripsi kegiatan</span>
-        <textarea id="manualDescription" rows="8" placeholder="Ceritakan kegiatanmu hari ini, seperti meeting, belajar, coding, diskusi, atau kendala yang muncul..." required></textarea>
-        <span class="field-hint">Tulis seadanya saja. AI akan merapikannya menjadi aktivitas, pembelajaran, dan kendala.</span>
+        <span class="field-label">catatan tambahan</span>
+        <textarea id="manualDescription" rows="4" placeholder="Contoh: Selain itu juga mengikuti meeting dengan enduser terkait progress dan juga kevalidan data, dan 1 dashboard sudah bisa digunakan pada tanggal 1, dashboard yang lain tinggal..."></textarea>
+        <span class="field-hint" id="mergeHint">Minimal 5 karakter. Jika kosong & ada commit, tetap bisa generate dari commit saja — tapi isi catatan bikin hasil paling akurat.</span>
       </label>
       <div class="form-actions">
-        <button type="submit" class="btn primary" id="tellAiBtn">beritahu AI</button>
+        <button type="submit" class="btn primary" id="tellAiBtn">Gabungkan &amp; Generate ✨</button>
       </div>
     </form>
   </div>

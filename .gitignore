@@ -1,5 +1,6 @@
 repo-cache/
 node_modules/
+client/node_modules/
 .env
 Logbook_MagangHub.xlsx
 logbook.json

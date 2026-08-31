@@ -27,6 +27,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 4174;
 
+// Tampilkan semua commit hari ini. Diff dicoba selengkap mungkin, tapi tetap ada batas
+// karakter agar response/API tidak terlalu berat kalau commit sangat besar.
+const FULL_TODAY_DIFF_OPTS = {
+    maxCommits: 0, // 0 = tidak dibatasi jumlah commit
+    maxFilesPerCommit: 0, // 0 = tidak dibatasi jumlah file per commit
+    maxCharsPerDiff: 50000,
+    maxTotalChars: 200000,
+};
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -47,7 +56,7 @@ app.get('/api/status', async (req, res) => {
         let detailed = '';
         try {
             if (wantDiff) {
-                const result = await getTodayGitLogsDetailed(repoPath, { maxCommits: 6, maxCharsPerDiff: 1000, maxTotalChars: 8500 });
+                const result = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
                 gitLogs = result.logs;
                 detailed = result.detailed;
                 commits = result.commits;
@@ -73,7 +82,7 @@ app.get('/api/commits/:sha/diff', async (req, res) => {
         const sha = String(req.params.sha || '').trim();
         if (!sha || !/^[0-9a-f]{5,40}$/i.test(sha)) return res.status(400).json({ error: 'SHA tidak valid' });
         const repoPath = getEffectiveRepoPath();
-        const diff = await getCommitDiff(repoPath, sha, { maxChars: 6000 });
+        const diff = await getCommitDiff(repoPath, sha, { maxChars: 50000 });
         res.json(diff);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -87,7 +96,7 @@ app.post('/api/generate', async (req, res) => {
         let gitLogs = '';
         let diffSection = '';
         try {
-            const detailed = await getTodayGitLogsDetailed(repoPath, { maxCommits: 8, maxCharsPerDiff: 1200, maxTotalChars: 9000 });
+            const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
             gitLogs = detailed.logs;
             diffSection = detailed.detailed;
         } catch {
@@ -97,7 +106,7 @@ app.post('/api/generate', async (req, res) => {
             return res.status(400).json({ error: 'Belum ada commit Git hari ini.' });
         }
         const draft = await generateWithGemini(gitLogs, diffSection);
-        res.json({ draft, gitLogs, diffSection, commits: (await getTodayCommitsWithDiff(repoPath).catch(()=>[])) });
+        res.json({ draft, gitLogs, diffSection, commits: (await getTodayCommitsWithDiff(repoPath, FULL_TODAY_DIFF_OPTS).catch(()=>[])) });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -133,7 +142,7 @@ app.post('/api/generate-combined', async (req, res) => {
         let diffSection = diffOverride;
         if (gitLogs === null || gitLogs === undefined) {
             try {
-                const detailed = await getTodayGitLogsDetailed(repoPath, { maxCommits: 8, maxCharsPerDiff: 1000, maxTotalChars: 8000 });
+                const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
                 gitLogs = detailed.logs;
                 diffSection = diffSection || detailed.detailed;
             } catch {
@@ -142,7 +151,7 @@ app.post('/api/generate-combined', async (req, res) => {
         } else if (!diffSection) {
             // Client mengirim gitLogs tapi belum ada diff -> coba ambil diff terbaru
             try {
-                const detailed = await getTodayGitLogsDetailed(repoPath, { maxCommits: 6, maxCharsPerDiff: 1000, maxTotalChars: 8000 });
+                const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
                 diffSection = detailed.detailed;
                 // jika gitLogs client masih sama, pakai detailed logs yang lebih lengkap
                 if (gitLogs === detailed.logs) diffSection = detailed.detailed;

@@ -1,8 +1,8 @@
 // Thin fetch wrapper mirroring the original vanilla-JS `api()` helper:
-// JSON in/out, 35s timeout, and errors normalized to `Error(message)`.
+// JSON in/out, 120s timeout, and errors normalized to `Error(message)`.
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 35000);
+  const timeout = setTimeout(() => controller.abort(), 120000);
   try {
     const res = await fetch(path, {
       ...options,
@@ -17,7 +17,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new Error(
-        'Request timeout (>35 detik). Cek koneksi atau coba lagi — server mungkin masih memproses diff.'
+        'Request timeout (>120 detik). Cek koneksi atau coba lagi — server mungkin masih memproses diff besar.'
       );
     }
     throw err;

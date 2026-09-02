@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import type { Commit, GenerateCombinedResponse, GenerateManualResponse, GenerateResponse } from '../types';
 import type { GenerateMode } from '../types';
 import { api, downloadExcel } from '../lib/api';
@@ -78,7 +79,9 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       setManualMode(false);
       setDraft(data.draft);
       const secs = ((Date.now() - startRef.current) / 1000).toFixed(1);
-      showToast(`Draft dari commit jadi dalam ${secs}s ✔ (diff diperhitungkan)`, 'success');
+      toast.success('Draft laporan selesai dibuat', {
+        description: `Draft dari commit jadi dalam ${secs}s ✔ (diff diperhitungkan)`,
+      });
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal generate', 'error');
     } finally {
@@ -105,7 +108,9 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       setDraft(data.draft);
       setManualMode(false);
       const secs = ((Date.now() - startRef.current) / 1000).toFixed(1);
-      showToast(`Draft gabungan jadi dalam ${secs}s — paling akurat ✨`, 'success');
+      toast.success('Draft laporan selesai dibuat', {
+        description: `Draft gabungan jadi dalam ${secs}s — paling akurat ✨`,
+      });
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal generate', 'error');
     } finally {
@@ -144,7 +149,9 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       setDraft(data.draft);
       setManualModalOpen(false);
       const secs = ((Date.now() - startRef.current) / 1000).toFixed(1);
-      showToast(`Draft gabungan jadi dalam ${secs}s — paling akurat ✨ (diff diperhitungkan)`, 'success');
+      toast.success('Draft laporan selesai dibuat', {
+        description: `Draft gabungan jadi dalam ${secs}s — paling akurat ✨ (diff diperhitungkan)`,
+      });
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal generate', 'error');
     } finally {
@@ -167,7 +174,9 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
           body: JSON.stringify({ description: lastManualNotes }),
         });
         setDraft(data.draft);
-        showToast('Draft diperbarui.', 'success');
+        toast.success('Draft laporan diperbarui', {
+          description: 'Generate ulang selesai dan draft siap dicek.',
+        });
       } catch (e) {
         showToast(e instanceof Error ? e.message : 'Gagal generate ulang', 'error');
       } finally {

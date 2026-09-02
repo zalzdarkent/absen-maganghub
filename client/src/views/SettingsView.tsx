@@ -6,12 +6,16 @@ import { useToast } from '../context/ToastContext';
 export function SettingsView({ onSaved }: { onSaved: () => void }) {
   const { showToast } = useToast();
   const [repoPath, setRepoPath] = useState('');
+  const [persistentSettings, setPersistentSettings] = useState(true);
+  const [isVercel, setIsVercel] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function load() {
     try {
       const data = await api<SettingsResponse>('/api/settings');
       setRepoPath(data.repoPath || '');
+      setPersistentSettings(data.persistentSettings !== false);
+      setIsVercel(Boolean(data.isVercel));
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal memuat pengaturan', 'error');
     }
@@ -42,6 +46,13 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
         <div className="flex items-center justify-between mb-3.5">
           <h2 className="font-mono text-sm lowercase tracking-[0.02em] text-muted font-semibold m-0">Pengaturan</h2>
         </div>
+        {isVercel && !persistentSettings && (
+          <div className="mb-4 rounded-md border border-yellow-500/50 bg-yellow-500/10 px-3 py-2 text-[12.5px] text-yellow-200">
+            Deploy Vercel butuh storage persisten. Tambahkan Vercel KV/Upstash env{' '}
+            <code>KV_REST_API_URL</code> + <code>KV_REST_API_TOKEN</code>, atau set <code>REPO_PATH</code> di
+            Environment Variables Vercel.
+          </div>
+        )}
         <form
           className="flex flex-col gap-4"
           onSubmit={(e) => {

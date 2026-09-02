@@ -49,7 +49,7 @@ function todayStrings() {
 // Sekarang juga kirim `commits` dengan diff per commit untuk UI (expandable) & akurasi Gemini
 app.get('/api/status', async (req, res) => {
     try {
-        const repoPath = getEffectiveRepoPath();
+        const repoPath = await getEffectiveRepoPath();
         const wantDiff = req.query.diff !== '0'; // default include diff, ?diff=0 untuk mode cepat
         let gitLogs = '';
         let commits = [];
@@ -81,7 +81,7 @@ app.get('/api/commits/:sha/diff', async (req, res) => {
     try {
         const sha = String(req.params.sha || '').trim();
         if (!sha || !/^[0-9a-f]{5,40}$/i.test(sha)) return res.status(400).json({ error: 'SHA tidak valid' });
-        const repoPath = getEffectiveRepoPath();
+        const repoPath = await getEffectiveRepoPath();
         const diff = await getCommitDiff(repoPath, sha, { maxChars: 50000 });
         res.json(diff);
     } catch (error) {
@@ -92,7 +92,7 @@ app.get('/api/commits/:sha/diff', async (req, res) => {
 // --- Generate a draft with Gemini (does NOT save to Excel yet) ---
 app.post('/api/generate', async (req, res) => {
     try {
-        const repoPath = getEffectiveRepoPath();
+        const repoPath = await getEffectiveRepoPath();
         let gitLogs = '';
         let diffSection = '';
         try {
@@ -137,7 +137,7 @@ app.post('/api/generate-combined', async (req, res) => {
             return res.status(400).json({ error: 'Catatan manual wajib diisi untuk mode gabungan.' });
         }
 
-        const repoPath = getEffectiveRepoPath();
+        const repoPath = await getEffectiveRepoPath();
         let gitLogs = gitLogsOverride;
         let diffSection = diffOverride;
         if (gitLogs === null || gitLogs === undefined) {
@@ -227,13 +227,17 @@ app.delete('/api/entries/:rowNumber', async (req, res) => {
 });
 
 // --- Settings: read (masked) and save ---
-app.get('/api/settings', (req, res) => {
-    res.json(getSettingsForDisplay());
+app.get('/api/settings', async (req, res) => {
+    try {
+        res.json(await getSettingsForDisplay());
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-app.post('/api/settings', (req, res) => {
+app.post('/api/settings', async (req, res) => {
     try {
-        const updated = saveSettings(req.body);
+        const updated = await saveSettings(req.body);
         res.json(updated);
     } catch (error) {
         res.status(500).json({ error: error.message });

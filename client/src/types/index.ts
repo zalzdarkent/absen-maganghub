@@ -66,6 +66,8 @@ export interface EntriesResponse {
 
 export interface SettingsResponse {
   repoPath: string;
+  persistentSettings?: boolean;
+  isVercel?: boolean;
 }
 
 export type ToastKind = 'success' | 'error' | 'warning' | 'info';

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Commit, StatusResponse, TabName } from './types';
 import { api } from './lib/api';
+import { startDailyLogbookReminder } from './lib/notifications';
 import { useToast } from './context/ToastContext';
 import { Tabs } from './components/Tabs';
 import { StatusPill, type StatusKind } from './components/StatusPill';
@@ -47,6 +48,8 @@ export default function App() {
     loadStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => startDailyLogbookReminder(showToast), [showToast]);
 
   return (
     <div className="max-w-[1320px] w-[min(1320px,calc(100%-2.5rem))] xl:w-[min(1360px,calc(100%-3.5rem))] max-[600px]:!w-[calc(100%-1.5rem)] mx-auto px-7 py-6 pb-16 max-[600px]:px-3.5 max-[600px]:py-3.5 flex flex-col gap-6">

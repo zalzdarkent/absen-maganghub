@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { SettingsResponse } from '../types';
 import { api } from '../lib/api';
+import {
+  canUseDesktopNotifications,
+  getDesktopNotificationPermission,
+  notifyDesktop,
+  requestDesktopNotificationPermission,
+} from '../lib/notifications';
 import { useToast } from '../context/ToastContext';
 
 export function SettingsView({ onSaved }: { onSaved: () => void }) {
@@ -9,6 +15,9 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
   const [persistentSettings, setPersistentSettings] = useState(true);
   const [isVercel, setIsVercel] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(
+    getDesktopNotificationPermission()
+  );
 
   async function load() {
     try {
@@ -23,8 +32,25 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
 
   useEffect(() => {
     load();
+    setNotificationPermission(getDesktopNotificationPermission());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleEnableNotifications() {
+    const permission = await requestDesktopNotificationPermission();
+    setNotificationPermission(permission);
+    if (permission === 'granted') {
+      notifyDesktop('Notifikasi MagangHub aktif', {
+        body: 'Nanti draft selesai dan reminder jam 15.40 bisa muncul di desktop.',
+        tag: 'notification-test',
+      });
+      showToast('Notifikasi desktop aktif ✔', 'success');
+    } else if (permission === 'unsupported') {
+      showToast('Browser ini belum mendukung desktop notification.', 'warning');
+    } else {
+      showToast('Izin notifikasi belum diberikan. Kamu masih tetap dapat toaster di aplikasi.', 'warning');
+    }
+  }
 
   async function handleSubmit() {
     setSaving(true);
@@ -71,6 +97,28 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
             />
             <span className="text-[11.5px] text-muted">https://github.com/username/repo.git</span>
           </label>
+          <div className="rounded-md border border-border bg-panel-alt px-3 py-2.5 text-[12.5px] text-muted">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="m-0 text-text font-semibold">Notifikasi desktop & reminder</p>
+                <p className="m-0 mt-1">
+                  Reminder harian aktif otomatis jam 15.40 selama dashboard terbuka. Status izin:{' '}
+                  <code className="bg-bg border border-border px-1 py-0.5 rounded text-[11px]">
+                    {notificationPermission}
+                  </code>
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={!canUseDesktopNotifications() || notificationPermission === 'granted'}
+                onClick={handleEnableNotifications}
+                className="font-mono text-xs font-semibold rounded-md border border-blue px-3.5 py-2 bg-blue text-[#04121f] hover:brightness-110 cursor-pointer disabled:opacity-60"
+              >
+                {notificationPermission === 'granted' ? 'notifikasi aktif' : 'aktifkan notifikasi'}
+              </button>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-2.5 mt-1">
             <button
               type="submit"

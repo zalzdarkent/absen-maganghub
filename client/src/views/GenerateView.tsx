@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import type { Commit, GenerateCombinedResponse, GenerateManualResponse, GenerateResponse } from '../types';
 import type { GenerateMode } from '../types';
 import { api, downloadExcel } from '../lib/api';
+import { notifyDesktop } from '../lib/notifications';
 import { useToast } from '../context/ToastContext';
 import { CommitLog } from '../components/CommitLog';
 import { ManualMergeModal } from '../components/ManualMergeModal';
@@ -23,6 +24,7 @@ interface DraftFields {
 }
 
 const EMPTY_DRAFT: DraftFields = { aktivitas: '', pembelajaran: '', kendala: '' };
+const DRAFT_AUTOSAVE_KEY = 'maganghub:draft:auto';
 
 function charCountLabel(len: number) {
   return `${len} karakter` + (len < 100 ? ' — minimal 100' : len > 5000 ? ' — kepanjangan!' : ' ✔');
@@ -50,6 +52,7 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
 
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [autoSavedAt, setAutoSavedAt] = useState<number | null>(null);
 
   function startTimer(label: string) {
     setGenerateLabel(label);
@@ -70,6 +73,46 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
   }
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_AUTOSAVE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        draft?: DraftFields;
+        manualMode?: boolean;
+        lastMode?: GenerateMode;
+        lastCombinedNotes?: string;
+        lastManualNotes?: string;
+        savedAt?: number;
+      };
+      if (!saved.draft) return;
+      setDraft(saved.draft);
+      setManualMode(Boolean(saved.manualMode));
+      setLastMode(saved.lastMode || 'commit');
+      setLastCombinedNotes(saved.lastCombinedNotes || '');
+      setLastManualNotes(saved.lastManualNotes || '');
+      setAutoSavedAt(saved.savedAt || null);
+      showToast('Draft terakhir dipulihkan otomatis.', 'info');
+    } catch {
+      localStorage.removeItem(DRAFT_AUTOSAVE_KEY);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!draft) {
+      localStorage.removeItem(DRAFT_AUTOSAVE_KEY);
+      setAutoSavedAt(null);
+      return;
+    }
+    const savedAt = Date.now();
+    localStorage.setItem(
+      DRAFT_AUTOSAVE_KEY,
+      JSON.stringify({ draft, manualMode, lastMode, lastCombinedNotes, lastManualNotes, savedAt })
+    );
+    setAutoSavedAt(savedAt);
+  }, [draft, manualMode, lastMode, lastCombinedNotes, lastManualNotes]);
+
   async function runGenerate() {
     startTimer('meracik dari commit + diff…');
     try {
@@ -81,6 +124,10 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       const secs = ((Date.now() - startRef.current) / 1000).toFixed(1);
       toast.success('Draft laporan selesai dibuat', {
         description: `Draft dari commit jadi dalam ${secs}s ✔ (diff diperhitungkan)`,
+      });
+      notifyDesktop('Draft laporan selesai dibuat', {
+        body: `Draft dari commit jadi dalam ${secs}s. Silakan cek dan simpan ke Excel.`,
+        tag: 'draft-ready',
       });
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal generate', 'error');
@@ -110,6 +157,10 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       const secs = ((Date.now() - startRef.current) / 1000).toFixed(1);
       toast.success('Draft laporan selesai dibuat', {
         description: `Draft gabungan jadi dalam ${secs}s — paling akurat ✨`,
+      });
+      notifyDesktop('Draft laporan selesai dibuat', {
+        body: `Draft gabungan jadi dalam ${secs}s. Silakan cek dan simpan ke Excel.`,
+        tag: 'draft-ready',
       });
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal generate', 'error');
@@ -152,6 +203,10 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       toast.success('Draft laporan selesai dibuat', {
         description: `Draft gabungan jadi dalam ${secs}s — paling akurat ✨ (diff diperhitungkan)`,
       });
+      notifyDesktop('Draft laporan selesai dibuat', {
+        body: `Draft gabungan jadi dalam ${secs}s. Silakan cek dan simpan ke Excel.`,
+        tag: 'draft-ready',
+      });
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal generate', 'error');
     } finally {
@@ -176,6 +231,10 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
         setDraft(data.draft);
         toast.success('Draft laporan diperbarui', {
           description: 'Generate ulang selesai dan draft siap dicek.',
+        });
+        notifyDesktop('Draft laporan diperbarui', {
+          body: 'Generate ulang selesai dan draft siap dicek.',
+          tag: 'draft-ready',
         });
       } catch (e) {
         showToast(e instanceof Error ? e.message : 'Gagal generate ulang', 'error');
@@ -334,6 +393,11 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
                 </span>
               </label>
             ))}
+            {autoSavedAt && (
+              <p className="m-0 -mt-1 text-right font-mono text-[10.5px] text-muted">
+                draft autosaved {new Date(autoSavedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
             <div className="flex justify-end gap-2.5 mt-1 flex-wrap">
               {manualMode && (
                 <button

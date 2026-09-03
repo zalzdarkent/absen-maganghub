@@ -8,6 +8,13 @@ import {
   requestDesktopNotificationPermission,
 } from '../lib/notifications';
 import { useToast } from '../context/ToastContext';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Settings2, FolderGit2, Bell, CheckCircle2, AlertTriangle, Shield, ExternalLink, Loader2 } from 'lucide-react';
 
 export function SettingsView({ onSaved }: { onSaved: () => void }) {
   const { showToast } = useToast();
@@ -67,69 +74,140 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
   }
 
   return (
-    <main className="view grid gap-5">
-      <section className="bg-panel border border-border rounded-[10px] p-[18px_20px]">
-        <div className="flex items-center justify-between mb-3.5">
-          <h2 className="font-mono text-sm lowercase tracking-[0.02em] text-muted font-semibold m-0">Pengaturan</h2>
-        </div>
-        {isVercel && !persistentSettings && (
-          <div className="mb-4 rounded-md border border-yellow-500/50 bg-yellow-500/10 px-3 py-2 text-[12.5px] text-yellow-200">
-            Deploy Vercel butuh storage persisten. Tambahkan Vercel KV/Upstash env{' '}
-            <code>KV_REST_API_URL</code> + <code>KV_REST_API_TOKEN</code>, atau set <code>REPO_PATH</code> di
-            Environment Variables Vercel.
+    <div className="grid gap-6 max-w-[880px]">
+      {isVercel && !persistentSettings && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-600 dark:text-amber-300">Storage persisten belum dikonfigurasi</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Deploy Vercel butuh storage persisten. Tambahkan env <code className="rounded bg-background border px-1 py-0.5 font-mono text-[11px]">KV_REST_API_URL</code> +{' '}
+              <code className="rounded bg-background border px-1 py-0.5 font-mono text-[11px]">KV_REST_API_TOKEN</code>, atau set{' '}
+              <code className="rounded bg-background border px-1 py-0.5 font-mono text-[11px]">REPO_PATH</code> di Environment Variables Vercel.
+            </p>
           </div>
-        )}
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSubmit();
-          }}
-        >
-          <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted">repo github</span>
-            <input
-              type="text"
-              value={repoPath}
-              onChange={(e) => setRepoPath(e.target.value)}
-              placeholder="https://github.com/username/repo.git  atau  /path/lokal/repo"
-              className="font-sans text-[13.5px] leading-[1.5] bg-bg border border-border rounded-md text-text px-3 py-2.5 focus:outline-2 focus:outline-blue focus:outline-offset-1"
-            />
-            <span className="text-[11.5px] text-muted">https://github.com/username/repo.git</span>
-          </label>
-          <div className="rounded-md border border-border bg-panel-alt px-3 py-2.5 text-[12.5px] text-muted">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="m-0 text-text font-semibold">Notifikasi desktop & reminder</p>
-                <p className="m-0 mt-1">
-                  Reminder harian aktif otomatis jam 15.40 selama dashboard terbuka. Status izin:{' '}
-                  <code className="bg-bg border border-border px-1 py-0.5 rounded text-[11px]">
-                    {notificationPermission}
-                  </code>
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={!canUseDesktopNotifications() || notificationPermission === 'granted'}
-                onClick={handleEnableNotifications}
-                className="font-mono text-xs font-semibold rounded-md border border-blue px-3.5 py-2 bg-blue text-[#04121f] hover:brightness-110 cursor-pointer disabled:opacity-60"
-              >
-                {notificationPermission === 'granted' ? 'notifikasi aktif' : 'aktifkan notifikasi'}
-              </button>
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+              <FolderGit2 className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                Sumber Repository
+                <Badge variant="secondary" className="rounded-full font-mono text-[10px]">Git</Badge>
+              </CardTitle>
+              <CardDescription className="mt-1 text-xs leading-relaxed max-w-[60ch]">
+                Tentukan repo GitHub atau path lokal untuk sinkron commit & diff. Bisa berupa URL <span className="font-mono">https://github.com/...</span> atau path lokal seperti <span className="font-mono">/Users/nama/repo</span>.
+              </CardDescription>
             </div>
           </div>
+        </CardHeader>
+        <Separator />
+        <CardContent className="pt-6">
+          <form
+            className="space-y-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit();
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="repoPath" className="text-xs uppercase tracking-widest text-muted-foreground">
+                Repo GitHub / Path Lokal
+              </Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <FolderGit2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="repoPath"
+                    type="text"
+                    value={repoPath}
+                    onChange={(e) => setRepoPath(e.target.value)}
+                    placeholder="https://github.com/username/repo.git  atau  /path/lokal/repo"
+                    className="pl-9 font-mono text-sm"
+                  />
+                </div>
+                <Button type="submit" disabled={saving} className="shrink-0 rounded-full">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Simpan
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <ExternalLink className="h-3 w-3" /> Contoh: <code className="rounded bg-muted px-1 py-0.5 font-mono">https://github.com/username/repo.git</code>
+              </p>
+            </div>
 
-          <div className="flex justify-end gap-2.5 mt-1">
-            <button
-              type="submit"
-              disabled={saving}
-              className="font-mono text-xs font-semibold rounded-md border border-green px-3.5 py-2 bg-green text-[#04210a] hover:brightness-110 cursor-pointer disabled:opacity-60"
-            >
-              simpan pengaturan
-            </button>
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold">
+                    <Bell className="h-4 w-4 text-primary" /> Notifikasi Desktop & Reminder Harian
+                  </p>
+                  <p className="max-w-[50ch] text-xs leading-relaxed text-muted-foreground">
+                    Reminder otomatis aktif jam <span className="font-medium text-foreground">15:40</span> selama dashboard terbuka. Notifikasi juga muncul saat draft selesai diracik Gemini.
+                  </p>
+                  <p className="flex items-center gap-1.5 pt-1 font-mono text-xs">
+                    Status izin:
+                    <Badge
+                      variant={notificationPermission === 'granted' ? 'success' : notificationPermission === 'denied' ? 'destructive' : 'secondary'}
+                      className="rounded-full font-mono text-[11px]"
+                    >
+                      {notificationPermission}
+                    </Badge>
+                    {notificationPermission === 'granted' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant={notificationPermission === 'granted' ? 'secondary' : 'default'}
+                  disabled={!canUseDesktopNotifications() || notificationPermission === 'granted'}
+                  onClick={handleEnableNotifications}
+                  className="rounded-full"
+                >
+                  <Bell className="h-4 w-4" />
+                  {notificationPermission === 'granted' ? 'Notifikasi aktif' : 'Aktifkan notifikasi'}
+                </Button>
+              </div>
+            </div>
+
+            <Separator />
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Shield className="h-3.5 w-3.5" /> Pengaturan disimpan lokal & aman. Tidak dikirim kemana pun.
+              </p>
+              <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Auto-sync Excel
+              </div>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="border-dashed">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Settings2 className="h-4 w-4 text-muted-foreground" /> Tentang Dashboard
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-xs leading-relaxed text-muted-foreground">
+          <p>
+            Dashboard ini berjalan <span className="font-medium text-foreground">local-first</span> — data logbook disimpan di file Excel{' '}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono">Logbook_MagangHub.xlsx</code> dan cache git di folder <code className="rounded bg-muted px-1 py-0.5 font-mono">repo-cache/</code>. Tidak ada data yang keluar tanpa izinmu.
+          </p>
+          <Separator />
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="rounded-full font-mono">Express + ExcelJS</Badge>
+            <Badge variant="outline" className="rounded-full font-mono">React 19 + shadcn/ui</Badge>
+            <Badge variant="outline" className="rounded-full font-mono">Tailwind CSS</Badge>
+            <Badge variant="outline" className="rounded-full font-mono">Gemini 2.5 Flash</Badge>
           </div>
-        </form>
-      </section>
-    </main>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

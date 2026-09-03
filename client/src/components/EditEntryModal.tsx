@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { LogbookEntry } from '../types';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Trash2, Save } from 'lucide-react';
 
 interface Props {
   entry: LogbookEntry | null;
@@ -21,78 +28,56 @@ export function EditEntryModal({ entry, onClose, onSave, onDelete }: Props) {
     }
   }, [entry]);
 
-  if (!entry) return null;
-
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center p-5 z-40"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-panel border border-border rounded-[10px] p-5 w-full max-w-[620px] max-h-[86vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-3.5">
-          <h3 className="font-mono text-sm font-semibold m-0">
-            Edit entri — #{entry.no} · {entry.tanggal}
-          </h3>
-          <button
-            className="font-mono text-[11.5px] font-semibold rounded-md border border-border px-2.5 py-1.5 bg-transparent text-text hover:brightness-110 cursor-pointer"
-            onClick={onClose}
-          >
-            tutup
-          </button>
-        </div>
-        <form
-          className="flex flex-col gap-3.5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSave(entry.rowNumber, { aktivitas: aktivitas.trim(), pembelajaran: pembelajaran.trim(), kendala: kendala.trim() });
-          }}
-        >
-          <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted">aktivitas</span>
-            <textarea
-              rows={4}
-              value={aktivitas}
-              onChange={(e) => setAktivitas(e.target.value)}
-              className="font-sans text-[13.5px] leading-[1.5] bg-bg border border-border rounded-md text-text px-3 py-2.5 resize-y focus:outline-2 focus:outline-blue focus:outline-offset-1"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted">pembelajaran</span>
-            <textarea
-              rows={4}
-              value={pembelajaran}
-              onChange={(e) => setPembelajaran(e.target.value)}
-              className="font-sans text-[13.5px] leading-[1.5] bg-bg border border-border rounded-md text-text px-3 py-2.5 resize-y focus:outline-2 focus:outline-blue focus:outline-offset-1"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted">kendala</span>
-            <textarea
-              rows={4}
-              value={kendala}
-              onChange={(e) => setKendala(e.target.value)}
-              className="font-sans text-[13.5px] leading-[1.5] bg-bg border border-border rounded-md text-text px-3 py-2.5 resize-y focus:outline-2 focus:outline-blue focus:outline-offset-1"
-            />
-          </label>
-          <div className="flex justify-between gap-2.5 mt-1 flex-wrap">
-            <button
-              type="button"
-              className="font-mono text-xs font-semibold rounded-md border border-red text-red bg-transparent px-3.5 py-2 hover:brightness-110 cursor-pointer"
-              onClick={() => onDelete(entry.rowNumber)}
+    <Dialog open={!!entry} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-[620px] max-h-[86vh] overflow-y-auto">
+        {entry && (
+          <>
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="rounded-full font-mono text-xs">#{entry.no}</Badge>
+                <DialogTitle className="text-base">Edit entri — {entry.tanggal}</DialogTitle>
+              </div>
+              <DialogDescription className="text-xs">Perbarui aktivitas, pembelajaran, dan kendala. Sinkron otomatis ke Excel.</DialogDescription>
+            </DialogHeader>
+            <Separator />
+            <form
+              className="flex flex-col gap-4 pt-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                onSave(entry.rowNumber, { aktivitas: aktivitas.trim(), pembelajaran: pembelajaran.trim(), kendala: kendala.trim() });
+              }}
             >
-              hapus entri
-            </button>
-            <button
-              type="submit"
-              className="font-mono text-xs font-semibold rounded-md border border-green px-3.5 py-2 bg-green text-[#04210a] hover:brightness-110 cursor-pointer"
-            >
-              simpan perubahan
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-aktivitas" className="text-xs uppercase tracking-widest text-muted-foreground">Aktivitas</Label>
+                <Textarea id="edit-aktivitas" rows={4} value={aktivitas} onChange={(e) => setAktivitas(e.target.value)} className="min-h-[96px] text-sm leading-relaxed" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-pembelajaran" className="text-xs uppercase tracking-widest text-muted-foreground">Pembelajaran</Label>
+                <Textarea id="edit-pembelajaran" rows={4} value={pembelajaran} onChange={(e) => setPembelajaran(e.target.value)} className="min-h-[96px] text-sm leading-relaxed" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-kendala" className="text-xs uppercase tracking-widest text-muted-foreground">Kendala</Label>
+                <Textarea id="edit-kendala" rows={4} value={kendala} onChange={(e) => setKendala(e.target.value)} className="min-h-[96px] text-sm leading-relaxed" />
+              </div>
+              <Separator />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Button type="button" variant="destructive" onClick={() => onDelete(entry.rowNumber)} className="gap-1.5">
+                  <Trash2 className="h-4 w-4" /> Hapus entri
+                </Button>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={onClose}>
+                    Batal
+                  </Button>
+                  <Button type="submit" className="gap-1.5">
+                    <Save className="h-4 w-4" /> Simpan perubahan
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

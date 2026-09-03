@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Commit } from '../types';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Sparkles, GitCommit, Lightbulb, Loader2 } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -22,8 +29,6 @@ export function ManualMergeModal({ open, gitLogs, commits, onClose, onSubmit, su
     }
   }, [open]);
 
-  if (!open) return null;
-
   const logs = String(gitLogs || '').trim();
   const lines = logs ? logs.split('\n').filter(Boolean) : [];
   const count = commits.length || lines.length;
@@ -43,77 +48,78 @@ export function ManualMergeModal({ open, gitLogs, commits, onClose, onSubmit, su
       : `Siap gabungkan ${count} commit + diff + catatan → hasil paling akurat ✨ (minimal 5 karakter)`;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center p-5 z-40"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-panel border border-border rounded-[10px] p-5 w-full max-w-[560px] max-h-[86vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-3.5">
-          <h3 className="font-mono text-sm font-semibold m-0 flex items-center gap-1.5 flex-wrap">
-            <span className="font-mono text-[10px] font-bold tracking-[0.05em] uppercase bg-blue text-[#04121f] px-[7px] py-0.5 rounded-full whitespace-nowrap">
-              ✨ Rekomendasi
-            </span>{' '}
-            Gabungkan biar AI lebih akurat
-          </h3>
-          <button
-            className="font-mono text-[11.5px] font-semibold rounded-md border border-border px-2.5 py-1.5 bg-transparent text-text hover:brightness-110 cursor-pointer"
-            type="button"
-            onClick={onClose}
-          >
-            tutup
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-[560px] gap-0 p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-4">
+          <div className="flex items-center gap-2">
+            <Badge className="rounded-full bg-primary text-primary-foreground gap-1">
+              <Sparkles className="h-3 w-3" /> Rekomendasi
+            </Badge>
+            <DialogTitle className="text-base">Gabungkan biar AI lebih akurat</DialogTitle>
+          </div>
+          <DialogDescription className="text-xs leading-relaxed">
+            Tambahkan konteks meeting, diskusi, atau pembelajaran di luar commit. AI akan menggabungkan semuanya.
+          </DialogDescription>
+        </DialogHeader>
+        <Separator />
         <form
-          className="flex flex-col gap-3.5"
+          className="flex flex-col gap-4 p-6"
           onSubmit={(e) => {
             e.preventDefault();
             onSubmit(notes.trim());
           }}
         >
-          <div className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted">
-              commit hari ini <span className="text-muted normal-case tracking-normal">({count} commit)</span>
-            </span>
-            <div className="bg-bg border border-border rounded-md px-2.5 py-2 max-h-[132px] overflow-y-auto flex flex-col gap-1">
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <GitCommit className="h-3.5 w-3.5" /> Commit hari ini
+              <span className="normal-case tracking-normal font-mono text-[11px] text-muted-foreground">({count} commit)</span>
+            </Label>
+            <div className="rounded-lg border bg-muted/30 p-3 max-h-[132px] overflow-y-auto space-y-1">
               {count === 0 ? (
-                <span className="muted text-[12px]">(tidak ada commit hari ini — nanti AI akan pakai catatan manual saja)</span>
+                <span className="text-xs text-muted-foreground">(tidak ada commit hari ini — nanti AI akan pakai catatan manual saja)</span>
               ) : (
                 <>
                   {previewLines.map((l, i) => (
-                    <div key={i} className="merge-commit-line">
+                    <div key={i} className="font-mono text-[12px] leading-relaxed border-b border-border/40 last:border-0 py-1">
                       {l}
                     </div>
                   ))}
-                  {count > 4 && <div className="muted text-[12px]">+{count - 4} commit lainnya…</div>}
+                  {count > 4 && <div className="text-xs text-muted-foreground pt-1">+{count - 4} commit lainnya…</div>}
                 </>
               )}
             </div>
           </div>
-          <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted">catatan tambahan</span>
-            <textarea
+
+          <div className="space-y-2">
+            <Label htmlFor="merge-notes" className="text-xs uppercase tracking-widest text-muted-foreground">
+              Catatan tambahan
+            </Label>
+            <Textarea
+              id="merge-notes"
               ref={inputRef}
               rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Contoh: Selain itu juga mengikuti meeting dengan enduser terkait progress dan juga kevalidan data, dan 1 dashboard sudah bisa digunakan pada tanggal 1, dashboard yang lain tinggal..."
-              className="font-sans text-[13.5px] leading-[1.5] bg-bg border border-border rounded-md text-text px-3 py-2.5 resize-y focus:outline-2 focus:outline-blue focus:outline-offset-1"
+              placeholder="Contoh: Selain itu juga mengikuti meeting dengan enduser terkait progress dan validasi data, 1 dashboard sudah bisa dipakai tanggal 1, dashboard lain tinggal finishing…"
+              className="min-h-[96px] resize-y text-sm leading-relaxed"
             />
-            <span className="text-[11.5px] text-muted">{hint}</span>
-          </label>
-          <div className="flex justify-end gap-2.5 mt-1">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="font-mono text-xs font-semibold rounded-md border border-blue px-3.5 py-2 bg-blue text-[#04121f] hover:brightness-110 cursor-pointer disabled:opacity-60"
-            >
-              {submitting ? 'menggabungkan…' : 'Gabungkan & Generate ✨'}
-            </button>
+            <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+              <Lightbulb className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+              {hint}
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+              Batal
+            </Button>
+            <Button type="submit" disabled={submitting} className="gap-1.5 shadow-sm">
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {submitting ? 'Menggabungkan…' : 'Gabungkan & Generate ✨'}
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

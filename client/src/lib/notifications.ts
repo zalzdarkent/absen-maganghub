@@ -30,8 +30,8 @@ export function notifyDesktop(title: string, options: NotificationOptions = {}) 
 
   try {
     const notification = new Notification(title, {
-      icon: '/favicon.svg',
-      badge: '/favicon.svg',
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
       ...options,
     });
     notification.onclick = () => {

@@ -7,6 +7,13 @@ import { notifyDesktop } from '../lib/notifications';
 import { useToast } from '../context/ToastContext';
 import { CommitLog } from '../components/CommitLog';
 import { ManualMergeModal } from '../components/ManualMergeModal';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { GitCommit, Sparkles, RefreshCw, Save, RotateCcw, Clock, FileSpreadsheet, Wand2, AlertCircle } from 'lucide-react';
 
 interface Props {
   gitLogs: string;
@@ -27,10 +34,23 @@ const EMPTY_DRAFT: DraftFields = { aktivitas: '', pembelajaran: '', kendala: '' 
 const DRAFT_AUTOSAVE_KEY = 'maganghub:draft:auto';
 
 function charCountLabel(len: number) {
-  return `${len} karakter` + (len < 100 ? ' — minimal 100' : len > 5000 ? ' — kepanjangan!' : ' ✔');
+  if (len < 100) return `${len}/100 — minimal 100`;
+  if (len > 5000) return `${len}/5000 — kepanjangan!`;
+  return `${len} ✓ cukup`;
 }
 function charCountColor(len: number) {
-  return len < 100 ? '#d29922' : len > 5000 ? '#f85149' : '#8b949e';
+  if (len < 100) return 'text-amber-500';
+  if (len > 5000) return 'text-red-500';
+  return 'text-emerald-500';
+}
+function ProgressBar({ len }: { len: number }) {
+  const pct = Math.min(100, (len / 100) * 100);
+  const color = len < 100 ? 'bg-amber-500' : len > 5000 ? 'bg-red-500' : 'bg-emerald-500';
+  return (
+    <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+      <div className={`h-full transition-all duration-300 ${color}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
 }
 
 export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onGeneratedGitLogs, onSaved }: Props) {
@@ -291,142 +311,191 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
     };
   }, [draft]);
 
+  const commitCount = commits.length || String(gitLogs || '').trim().split('\n').filter(Boolean).length;
+
   return (
-    <main className="view grid gap-5 grid-cols-1 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] items-start">
+    <div className="grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[410px_1fr] items-start">
       {/* Commit Panel */}
-      <section className="bg-panel border border-border rounded-[10px] p-[18px_20px]">
-        <div className="flex items-center justify-between mb-3.5">
-          <h2 className="font-mono text-sm lowercase tracking-[0.02em] text-muted font-semibold m-0">commit hari ini</h2>
-          <button
-            className="font-mono text-[11.5px] font-semibold rounded-md border border-border px-2.5 py-1.5 bg-transparent text-text hover:brightness-110 cursor-pointer"
-            onClick={onRefreshCommits}
-          >
-            refresh
-          </button>
-        </div>
-        <div className="bg-bg border border-border rounded-md py-1 max-h-[420px] overflow-y-auto" aria-live="polite">
-          <CommitLog gitLogs={gitLogs} commits={commits} />
-        </div>
-      </section>
+      <Card className="overflow-hidden border shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                <GitCommit className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-semibold leading-none">Commit hari ini</CardTitle>
+                <CardDescription className="mt-1 font-mono text-[11px]">{commitCount} commit • sinkron Git</CardDescription>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" className="h-7 rounded-full px-3 text-xs" onClick={onRefreshCommits}>
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <Separator />
+        <CardContent className="p-0">
+          <div className="max-h-[480px] overflow-y-auto" aria-live="polite">
+            <CommitLog gitLogs={gitLogs} commits={commits} />
+          </div>
+          <div className="border-t bg-muted/20 px-4 py-2.5 flex items-center justify-between">
+            <span className="font-mono text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <Clock className="h-3 w-3" /> auto-refresh saat generate
+            </span>
+            <Badge variant="secondary" className="rounded-full font-mono text-[10px]">diff ready</Badge>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Draft Panel */}
-      <section className="bg-panel border border-border rounded-[10px] p-[18px_20px]">
-        <div className="flex items-center justify-between mb-3.5 flex-wrap gap-2.5 max-[560px]:items-start">
-          <h2 className="font-mono text-sm lowercase tracking-[0.02em] text-muted font-semibold m-0">draft logbook</h2>
-          <div className="flex items-center gap-2 max-[560px]:w-full max-[560px]:justify-end">
-            <button
-              type="button"
-              className="font-mono text-xs font-semibold rounded-md border border-border px-3.5 py-2 bg-transparent text-text hover:brightness-110 cursor-pointer"
-              onClick={() => setManualModalOpen(true)}
-            >
-              Merge &amp; Generate ✨
-            </button>
-            <button
-              type="button"
-              disabled={generating}
-              className="font-mono text-xs font-semibold rounded-md border border-blue px-3.5 py-2 bg-blue text-[#04121f] hover:brightness-110 cursor-pointer disabled:opacity-60"
-              onClick={runGenerate}
-            >
-              {generating && lastMode !== 'combined' ? 'meracik draft…' : 'Generate dari Commit'}
-            </button>
-          </div>
-        </div>
-
-        {!draft && !generating && (
-          <div className="text-muted text-[13.5px] px-3.5 py-[22px] text-center border border-dashed border-border rounded-md flex flex-col gap-2.5 items-center">
-            <p className="m-0">Belum ada draft.</p>
-            <ul className="text-left m-0 pl-[18px] text-[12.5px] leading-[1.6] text-muted list-disc">
-              <li className="my-0.5">
-                <strong className="text-text">Commit saja</strong> → klik <em>Generate dari Commit</em>.
-              </li>
-              <li className="my-0.5">
-                <strong className="text-text">Paling akurat ⭐</strong> → klik <em>Merge &amp; Generate ✨</em> lalu isi catatan
-                meeting/belajar.
-              </li>
-            </ul>
-            <p className="text-muted text-xs m-0 mt-2.5">
-              Tips: model <code className="bg-bg border border-border px-1 py-0.5 rounded text-[11px]">gemini-3.6-flash</code>{' '}
-              (terbaru) paling cepat & stabil.
-            </p>
-          </div>
-        )}
-
-        {generating && (
-          <div className="flex items-center gap-2.5 px-3.5 py-3 bg-panel-alt border border-border rounded-md font-mono text-[12.5px] text-text -mb-0.5">
-            <span className="w-3.5 h-3.5 border-2 border-border border-t-blue rounded-full animate-spin-slow shrink-0" />
-            <span>{generateLabel}</span>
-            <span className="text-muted text-xs ml-auto font-mono">{elapsed.toFixed(1)}s</span>
-          </div>
-        )}
-
-        {draft && (
-          <form
-            className="flex flex-col gap-3.5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSave();
-            }}
-          >
-            {(['aktivitas', 'pembelajaran', 'kendala'] as const).map((field) => (
-              <label key={field} className="flex flex-col gap-1.5">
-                <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted">{field}</span>
-                <textarea
-                  rows={5}
-                  value={draft[field]}
-                  onChange={(e) => setDraft({ ...draft, [field]: e.target.value })}
-                  placeholder={
-                    manualMode
-                      ? field === 'aktivitas'
-                        ? 'Contoh: Mengikuti meeting kickoff sprint dan menyepakati pembagian task frontend.'
-                        : field === 'pembelajaran'
-                        ? 'Apa yang dipahami dari meeting atau aktivitas ini?'
-                        : 'Tulis kendala yang muncul, atau tulis "Tidak ada kendala".'
-                      : ''
-                  }
-                  className="font-sans text-[13.5px] leading-[1.5] bg-bg border border-border rounded-md text-text px-3 py-2.5 resize-y focus:outline-2 focus:outline-blue focus:outline-offset-1"
-                />
-                <span
-                  className="font-mono text-[10.5px] text-right -mt-0.5"
-                  style={{ color: charCountColor(counts?.[field] ?? 0) }}
-                >
-                  {charCountLabel(counts?.[field] ?? 0)}
+      <Card className="overflow-hidden border shadow-sm">
+        <CardHeader className="pb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2 text-[15px]">
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                  <Wand2 className="h-3.5 w-3.5" />
                 </span>
-              </label>
-            ))}
-            {autoSavedAt && (
-              <p className="m-0 -mt-1 text-right font-mono text-[10.5px] text-muted">
-                draft autosaved {new Date(autoSavedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-              </p>
-            )}
-            <div className="flex justify-end gap-2.5 mt-1 flex-wrap">
-              {manualMode && (
-                <button
-                  type="button"
-                  className="font-mono text-xs font-semibold rounded-md border border-border px-3.5 py-2 bg-transparent text-text hover:brightness-110 cursor-pointer"
-                  onClick={resetDraft}
-                >
-                  batal
-                </button>
-              )}
-              <button
-                type="button"
-                disabled={regenerating || generating}
-                className="font-mono text-xs font-semibold rounded-md border border-border px-3.5 py-2 bg-transparent text-text hover:brightness-110 cursor-pointer disabled:opacity-60"
-                onClick={handleRegenerate}
-              >
-                generate ulang
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="font-mono text-xs font-semibold rounded-md border border-green px-3.5 py-2 bg-green text-[#04210a] hover:brightness-110 cursor-pointer disabled:opacity-60"
-              >
-                simpan &amp; download excel
-              </button>
+                Draft Logbook
+              </CardTitle>
+              <CardDescription className="text-xs leading-relaxed max-w-[52ch]">
+                AI akan menulis 3 bagian wajib minimal 100 karakter.
+              </CardDescription>
             </div>
-          </form>
-        )}
-      </section>
+            <div className="flex items-center gap-2 self-start">
+              <Button variant="outline" size="sm" className="rounded-full" onClick={() => setManualModalOpen(true)}>
+                <Sparkles className="h-3.5 w-3.5" />
+                Merge & Generate
+                <Badge variant="success" className="ml-1 rounded-full px-1.5 py-0 text-[10px]">✨ Rekomen</Badge>
+              </Button>
+              <Button size="sm" className="rounded-full shadow-sm" disabled={generating} onClick={runGenerate}>
+                {generating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {generating && lastMode !== 'combined' ? 'Meracik…' : 'Generate dari Commit'}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {!draft && !generating && (
+            <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-center">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-background border shadow-sm">
+                <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">Belum ada draft</p>
+              <p className="mx-auto mt-1 max-w-[48ch] text-xs leading-relaxed text-muted-foreground">
+                Mulai dengan commit harianmu, atau gabungkan dengan catatan meeting untuk hasil yang lebih lengkap.
+              </p>
+              <div className="mt-4 grid gap-2 text-left sm:grid-cols-2">
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold"><GitCommit className="h-3.5 w-3.5 text-primary" /> Commit saja</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Klik <span className="font-medium text-foreground">Generate dari Commit</span> — cepat untuk hari coding fokus.</p>
+                </div>
+                <div className="rounded-lg border bg-card p-3 ring-1 ring-primary/20">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold text-primary"><Sparkles className="h-3.5 w-3.5" /> Paling akurat ⭐</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Klik <span className="font-medium text-foreground">Merge & Generate</span> lalu isi meeting/belajar.</p>
+                </div>
+              </div>
+              <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-background border px-3 py-1 font-mono text-[11px] text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Model <code className="rounded bg-muted px-1 py-0.5 text-[11px]">gemini 3.6 flash</code>
+              </p>
+            </div>
+          )}
+
+          {generating && (
+            <div className="flex items-center gap-3 rounded-xl border bg-muted/30 px-4 py-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-background border shadow-sm">
+                <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium leading-none">{generateLabel}</p>
+                <p className="mt-1 font-mono text-xs text-muted-foreground">Gemini sedang menganalisis diff • mohon tunggu</p>
+              </div>
+              <Badge variant="secondary" className="rounded-full font-mono text-xs tabular-nums">
+                {elapsed.toFixed(1)}s
+              </Badge>
+            </div>
+          )}
+
+          {draft && (
+            <form
+              className="space-y-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSave();
+              }}
+            >
+              {(['aktivitas', 'pembelajaran', 'kendala'] as const).map((field) => {
+                const len = counts?.[field] ?? 0;
+                const labelMap = {
+                  aktivitas: 'Aktivitas Harian',
+                  pembelajaran: 'Pembelajaran',
+                  kendala: 'Kendala & Solusi',
+                } as const;
+                const placeholderMap = {
+                  aktivitas: manualMode ? 'Contoh: Mengikuti meeting kickoff sprint dan menyepakati pembagian task frontend.' : 'Rincikan pekerjaan yang dilakukan hari ini…',
+                  pembelajaran: manualMode ? 'Apa yang dipahami dari meeting atau aktivitas ini?' : 'Jelaskan insight atau skill yang didapat…',
+                  kendala: manualMode ? 'Tulis kendala yang muncul, atau "Tidak ada kendala".' : 'Tulis kendala teknis/non-teknis atau "Tidak ada kendala berarti".',
+                } as const;
+                return (
+                  <div key={field} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor={field} className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        {labelMap[field]}
+                      </Label>
+                      <span className={`font-mono text-[11px] font-medium ${charCountColor(len)}`}>{charCountLabel(len)}</span>
+                    </div>
+                    <Textarea
+                      id={field}
+                      rows={5}
+                      value={draft[field]}
+                      onChange={(e) => setDraft({ ...draft, [field]: e.target.value })}
+                      placeholder={placeholderMap[field]}
+                      className="min-h-[110px] resize-y bg-background text-[13.5px] leading-relaxed"
+                    />
+                    <ProgressBar len={len} />
+                    {len < 100 && (
+                      <p className="flex items-center gap-1 font-mono text-[11px] text-amber-500">
+                        <AlertCircle className="h-3 w-3" /> Minimal 100 karakter agar bisa disimpan ke Excel
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+
+              {autoSavedAt && (
+                <p className="text-right font-mono text-[11px] text-muted-foreground flex items-center justify-end gap-1">
+                  <Clock className="h-3 w-3" /> autosaved {new Date(autoSavedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+
+              <Separator />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs leading-relaxed text-muted-foreground max-w-[36ch]">
+                  Pastikan tiap field sudah <span className="font-medium text-foreground">≥100 karakter</span> sebelum disimpan. File Excel akan ter-download otomatis.
+                </p>
+                <div className="flex items-center gap-2">
+                  {manualMode && (
+                    <Button type="button" variant="ghost" onClick={resetDraft}>
+                      Batal
+                    </Button>
+                  )}
+                  <Button type="button" variant="outline" disabled={regenerating || generating} onClick={handleRegenerate}>
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Generate ulang
+                  </Button>
+                  <Button type="submit" disabled={saving} className="shadow-sm">
+                    {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    Simpan & Download Excel
+                  </Button>
+                </div>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
 
       <ManualMergeModal
         open={manualModalOpen}
@@ -436,7 +505,7 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
         onSubmit={handleManualSubmit}
         submitting={modalSubmitting}
       />
-    </main>
+    </div>
   );
 }
 

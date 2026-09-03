@@ -20,6 +20,18 @@ import {
     updateEntry,
 } from './lib/logbook.js';
 import { getEffectiveRepoPath, getSettingsForDisplay, saveSettings } from './lib/settings.js';
+import {
+    buildReminderPayload,
+    getVapidKeys,
+    isPushConfigured,
+    listSubscriptions,
+    markDailyReminderSent,
+    removeSubscription,
+    saveSubscription,
+    sendReminderToAll,
+    shouldSendDailyReminder,
+    todayKeyWIB,
+} from './lib/push.js';
 
 dotenv.config();
 
@@ -243,6 +255,93 @@ app.post('/api/settings', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// --- Web Push: VAPID public key (public, aman untuk client) ---
+app.get('/api/push/vapid-public-key', async (req, res) => {
+    try {
+        const { publicKey } = getVapidKeys();
+        if (!publicKey) return res.status(503).json({ error: 'Push belum dikonfigurasi. Generate: npx web-push generate-vapid-keys lalu isi VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY.' });
+        res.json({ publicKey });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/push/status', async (req, res) => {
+    try {
+        const subs = await listSubscriptions().catch(() => []);
+        res.json({ configured: isPushConfigured(), subscriptionCount: subs.length, lastSentDay: todayKeyWIB() });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/push/subscribe', async (req, res) => {
+    try {
+        const subscription = req.body.subscription || req.body;
+        const subs = await saveSubscription(subscription);
+        res.json({ ok: true, count: subs.length });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.post('/api/push/unsubscribe', async (req, res) => {
+    try {
+        const endpoint = String(req.body.endpoint || req.body.subscription?.endpoint || '').trim();
+        if (!endpoint) return res.status(400).json({ error: 'endpoint wajib diisi.' });
+        const subs = await removeSubscription(endpoint);
+        res.json({ ok: true, count: subs.length });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Test manual dari UI — kirim ke semua subscriber
+app.post('/api/push/send', async (req, res) => {
+    try {
+        if (!isPushConfigured()) return res.status(503).json({ error: 'Push belum dikonfigurasi (VAPID kosong).' });
+        const title = String(req.body.title || 'Test push MagangHub').slice(0, 100);
+        const body = String(req.body.body || 'Notifikasi push aktif ✔').slice(0, 300);
+        // tag default unik: tag yang sama membuat browser me-replace notif lama tanpa popup baru
+        const tag = String(req.body.tag || `push-test-${Date.now()}`).slice(0, 100);
+        const result = await sendReminderToAll({ title, body, tag, url: '/' });
+        res.json({ ok: true, ...result });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Dipanggil Vercel Cron tiap hari 08:40 UTC (=15:40 WIB) + bisa dipanggil manual
+app.get('/api/push-reminder', handlePushReminder);
+app.post('/api/push-reminder', handlePushReminder);
+
+async function handlePushReminder(req, res) {
+    try {
+        const cronSecret = String(process.env.CRON_SECRET || '').trim();
+        if (cronSecret) {
+            const got = String(req.query.secret || req.headers['x-cron-secret'] || '').trim()
+                || String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+            const isVercelCron = req.headers['x-vercel-cron'] === '1';
+            if (got !== cronSecret && !isVercelCron) {
+                return res.status(401).json({ error: 'Unauthorized (CRON_SECRET salah).' });
+            }
+        }
+        if (!isPushConfigured()) return res.status(503).json({ error: 'Push belum dikonfigurasi.' });
+        const dayKey = todayKeyWIB();
+        const force = String(req.query.force || '') === '1' || req.body?.force === true;
+        if (!force && !(await shouldSendDailyReminder(dayKey))) {
+            return res.json({ ok: true, skipped: true, dayKey });
+        }
+        const payload = buildReminderPayload();
+        const result = await sendReminderToAll(payload);
+        // Tandai terkirim walau 0 subscriber agar cron tidak spam retry; kirim ulang bisa pakai ?force=1
+        await markDailyReminderSent(dayKey);
+        res.json({ ok: true, dayKey, ...result });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+}
 
 app.listen(PORT, () => {
     console.log(`\n📒 MagangHub Logbook Dashboard jalan di http://localhost:${PORT}\n`);

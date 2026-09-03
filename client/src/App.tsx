@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Commit, StatusResponse, TabName } from './types';
 import { api } from './lib/api';
 import { startDailyLogbookReminder } from './lib/notifications';
+import { registerServiceWorker } from './lib/pushClient';
 import { useToast } from './context/ToastContext';
 import { GenerateView } from './views/GenerateView';
 import { HistoryView } from './views/HistoryView';
@@ -155,6 +156,11 @@ export default function App() {
   }, []);
 
   useEffect(() => startDailyLogbookReminder(showToast), [showToast]);
+
+  // Daftarkan service worker untuk Web Push (Opsi B). Gagal = fallback ke reminder lokal di atas.
+  useEffect(() => {
+    registerServiceWorker().catch(() => undefined);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background relative">

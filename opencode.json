@@ -1,0 +1,19 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "agent": {
+        "orchestrator": {
+            "mode": "primary",
+            "permission": {
+                "task": {
+                    "*": "deny",
+                    "explorer": "allow",
+                    "planner": "allow",
+                    "frontend": "allow",
+                    "backend": "allow",
+                    "tester": "allow",
+                    "reviewer": "allow"
+                }
+            }
+        }
+    }
+}

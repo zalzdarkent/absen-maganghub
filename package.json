@@ -5,7 +5,8 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "nodemon --watch server.js --watch lib --watch public --ignore logbook.json --ignore logbook-cache.json --ignore .env server.js"
+    "build": "npm run build --prefix client",
+    "start": "nodemon --watch server.js --watch lib --watch public --ignore logbook.json --ignore logbook-cache.json --ignore push-subscriptions.json --ignore push-last-sent.json --ignore .env server.js"
   },
   "dependencies": {
     "@google/genai": "^0.3.0",
@@ -13,7 +14,8 @@
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
-    "node-notifier": "^10.0.1"
+    "node-notifier": "^10.0.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

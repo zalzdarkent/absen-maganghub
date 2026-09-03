@@ -2,7 +2,7 @@
 
 description: Coordinate coding tasks by analyzing complexity, selecting the minimum required agents, creating an execution plan, and waiting for user approval before making changes.
 mode: primary
-model: opencode/muse-spark-1.2
+model: opencode/muse-spark-1.3
 ------------------------------
 
 # Orchestrator Agent

@@ -7,6 +7,14 @@ import {
   notifyDesktop,
   requestDesktopNotificationPermission,
 } from '../lib/notifications';
+import {
+  canUsePush,
+  fetchPushStatus,
+  getExistingPushSubscription,
+  sendTestPush,
+  subscribePush,
+  unsubscribePush,
+} from '../lib/pushClient';
 import { useToast } from '../context/ToastContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +33,10 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(
     getDesktopNotificationPermission()
   );
+  const [pushSupported] = useState(() => canUsePush());
+  const [pushActive, setPushActive] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushServerOk, setPushServerOk] = useState<boolean | null>(null);
 
   async function load() {
     try {
@@ -40,6 +52,20 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
   useEffect(() => {
     load();
     setNotificationPermission(getDesktopNotificationPermission());
+    (async () => {
+      try {
+        const status = await fetchPushStatus();
+        setPushServerOk(Boolean(status.configured));
+      } catch {
+        setPushServerOk(false);
+      }
+      try {
+        const existing = await getExistingPushSubscription();
+        setPushActive(Boolean(existing));
+      } catch {
+        setPushActive(false);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -56,6 +82,49 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
       showToast('Browser ini belum mendukung desktop notification.', 'warning');
     } else {
       showToast('Izin notifikasi belum diberikan. Kamu masih tetap dapat toaster di aplikasi.', 'warning');
+    }
+  }
+
+  async function handleEnablePush() {
+    setPushLoading(true);
+    try {
+      await subscribePush();
+      setPushActive(true);
+      showToast('Push aktif ✔ Tutup tab pun reminder 15.40 tetap masuk.', 'success');
+      try {
+        await sendTestPush();
+      } catch {
+        // subscribe sudah sukses, test push opsional
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal mengaktifkan push', 'error');
+    } finally {
+      setPushLoading(false);
+    }
+  }
+
+  async function handleDisablePush() {
+    setPushLoading(true);
+    try {
+      await unsubscribePush();
+      setPushActive(false);
+      showToast('Push dimatikan. Reminder lokal 15.40 tetap jalan saat dashboard terbuka.', 'info');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal mematikan push', 'error');
+    } finally {
+      setPushLoading(false);
+    }
+  }
+
+  async function handleTestPush() {
+    setPushLoading(true);
+    try {
+      const result = await sendTestPush();
+      showToast(`Test push terkirim ke ${result.sent}/${result.total} device ✔`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal kirim test push', 'error');
+    } finally {
+      setPushLoading(false);
     }
   }
 
@@ -171,6 +240,49 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
                   <Bell className="h-4 w-4" />
                   {notificationPermission === 'granted' ? 'Notifikasi aktif' : 'Aktifkan notifikasi'}
                 </Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-muted/20 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold">
+                    <Bell className="h-4 w-4 text-primary" /> Web Push — tetap bunyi walau tab ditutup
+                  </p>
+                  <p className="max-w-[50ch] text-xs leading-relaxed text-muted-foreground">
+                    Ditenagai service worker + Vercel Cron jam <span className="font-medium text-foreground">15:40 WIB</span>. Cocok untuk deploy Vercel.
+                    {!pushSupported && ' Browser ini belum mendukung push (butuh HTTPS + Chrome/Edge/Firefox).'}
+                    {pushServerOk === false && ' Server belum dikonfigurasi VAPID.'}
+                  </p>
+                  <p className="flex items-center gap-1.5 pt-1 font-mono text-xs">
+                    Status push:
+                    <Badge
+                      variant={pushActive ? 'success' : 'secondary'}
+                      className="rounded-full font-mono text-[11px]"
+                    >
+                      {pushActive ? 'aktif' : 'nonaktif'}
+                    </Badge>
+                    {pushActive && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {pushActive && (
+                    <Button type="button" variant="outline" disabled={pushLoading} onClick={handleTestPush} className="rounded-full">
+                      {pushLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                      Test push
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant={pushActive ? 'secondary' : 'default'}
+                    disabled={!pushSupported || pushLoading || pushServerOk === false}
+                    onClick={pushActive ? handleDisablePush : handleEnablePush}
+                    className="rounded-full"
+                  >
+                    {pushLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+                    {pushActive ? 'Matikan push' : 'Aktifkan push'}
+                  </Button>
+                </div>
               </div>
             </div>
 

@@ -4,3 +4,6 @@ client/node_modules/
 .env
 Logbook_MagangHub.xlsx
 logbook.json
+logbook-cache.json
+push-subscriptions.json
+push-last-sent.json

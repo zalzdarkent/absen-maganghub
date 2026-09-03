@@ -214,7 +214,7 @@ export default function App() {
 
         <footer className="mt-10 flex flex-col items-center gap-2 border-t pt-6 text-center md:flex-row md:justify-between md:text-left">
           <p className="font-mono text-[11px] text-muted-foreground">
-            © {new Date().getFullYear()} MagangHub Kemnaker — dibuat untuk magang yang lebih tertata.
+            © {new Date().getFullYear()} Alif Fadillah Ummar.
           </p>
           <p className="font-mono text-[11px] text-muted-foreground/70">
             Local-first • Excel otomatis • Notifikasi jam 15.40

@@ -5,7 +5,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "build": "npm run build --prefix client",
+    "build": "npm install --prefix client && npm run build --prefix client",
     "start": "nodemon --watch server.js --watch lib --watch public --ignore logbook.json --ignore logbook-cache.json --ignore push-subscriptions.json --ignore push-last-sent.json --ignore .env server.js"
   },
   "dependencies": {

@@ -83,8 +83,9 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
     timerRef.current = setInterval(() => {
       const sec = (Date.now() - startRef.current) / 1000;
       setElapsed(sec);
-      if (sec > 15) setGenerateLabel('sedikit lagi… diff sedang dianalisis Gemini');
-      else if (sec > 8) setGenerateLabel('masih meracik… (Gemini + diff kadang butuh 5-15 detik)');
+      if (sec > 25) setGenerateLabel('hampir selesai… jika >35 detik akan auto-retry ke model cepat');
+      else if (sec > 15) setGenerateLabel('sedikit lagi… diff sedang dianalisis Gemini');
+      else if (sec > 8) setGenerateLabel('masih meracik… (Gemini + diff biasanya 5-15 detik)');
     }, 200);
   }
   function stopTimer() {
@@ -399,7 +400,7 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
               </div>
               <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-background border px-3 py-1 font-mono text-[11px] text-muted-foreground">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Model <code className="rounded bg-muted px-1 py-0.5 text-[11px]">gemini 3.6 flash</code>
+                Model <code className="rounded bg-muted px-1 py-0.5 text-[11px]">gemini 1.5 flash</code> (paling cepat)
               </p>
             </div>
           )}

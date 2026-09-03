@@ -39,13 +39,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 4174;
 
-// Tampilkan semua commit hari ini. Diff dicoba selengkap mungkin, tapi tetap ada batas
-// karakter agar response/API tidak terlalu berat kalau commit sangat besar.
+// Diff opts yang seimbang: cukup untuk 10 commit tapi tetap ringan (<15k total)
+// Nilai lama 0/0/50000/200000 bikin git fetch + patch blocking >5 detik dan Gemini timeout.
+// Sekarang: 10 commit x 3 file x 3500 char = max ~10.5k + overhead = <15k
 const FULL_TODAY_DIFF_OPTS = {
-    maxCommits: 0, // 0 = tidak dibatasi jumlah commit
-    maxFilesPerCommit: 0, // 0 = tidak dibatasi jumlah file per commit
-    maxCharsPerDiff: 50000,
-    maxTotalChars: 200000,
+    maxCommits: 10,
+    maxFilesPerCommit: 3,
+    maxCharsPerDiff: 3500,
+    maxTotalChars: 15000,
 };
 
 app.use(express.json({ limit: '2mb' }));
@@ -104,22 +105,32 @@ app.get('/api/commits/:sha/diff', async (req, res) => {
 // --- Generate a draft with Gemini (does NOT save to Excel yet) ---
 app.post('/api/generate', async (req, res) => {
     try {
+        const t0 = Date.now();
         const repoPath = await getEffectiveRepoPath();
         let gitLogs = '';
         let diffSection = '';
+        let commits = [];
         try {
             const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
             gitLogs = detailed.logs;
             diffSection = detailed.detailed;
-        } catch {
+            commits = detailed.commits || [];
+        } catch (e) {
+            console.warn('[generate] getTodayGitLogsDetailed gagal, fallback:', e.message);
             gitLogs = await getTodayGitLogs(repoPath);
         }
         if (!gitLogs) {
             return res.status(400).json({ error: 'Belum ada commit Git hari ini.' });
         }
+        const gitMs = Date.now() - t0;
+        console.log(`[generate] git fetch done ${gitMs}ms, commits=${commits.length} diffLen=${String(diffSection).length}`);
+        const g0 = Date.now();
         const draft = await generateWithGemini(gitLogs, diffSection);
-        res.json({ draft, gitLogs, diffSection, commits: (await getTodayCommitsWithDiff(repoPath, FULL_TODAY_DIFF_OPTS).catch(()=>[])) });
+        console.log(`[generate] gemini done ${Date.now() - g0}ms total ${Date.now()-t0}ms`);
+        // Reuse commits yang sudah di-fetch, jangan fetch lagi (hemat 2-4 detik)
+        res.json({ draft, gitLogs, diffSection, commits });
     } catch (error) {
+        console.error('[generate] error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
@@ -141,6 +152,7 @@ app.post('/api/generate-manual', async (req, res) => {
 // --- Generate a draft by COMBINING commit logs + manual notes (now diff-aware) ---
 app.post('/api/generate-combined', async (req, res) => {
     try {
+        const t0 = Date.now();
         const manualNotes = String(req.body.manualNotes || req.body.description || '').trim();
         const gitLogsOverride = typeof req.body.gitLogs === 'string' ? req.body.gitLogs.trim() : null;
         const diffOverride = typeof req.body.diffSection === 'string' ? req.body.diffSection : null;
@@ -152,29 +164,36 @@ app.post('/api/generate-combined', async (req, res) => {
         const repoPath = await getEffectiveRepoPath();
         let gitLogs = gitLogsOverride;
         let diffSection = diffOverride;
+        // Hemat git fetch: jika client sudah kirim gitLogs+diff, jangan fetch lagi
+        // Hanya fetch jika keduanya kosong, atau diff kosong (fallback)
         if (gitLogs === null || gitLogs === undefined) {
             try {
                 const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
                 gitLogs = detailed.logs;
                 diffSection = diffSection || detailed.detailed;
-            } catch {
+                console.log(`[generate-combined] fetched fresh git ${Date.now()-t0}ms (no override)`);
+            } catch (e) {
+                console.warn('[generate-combined] detailed fetch gagal:', e.message);
                 gitLogs = await getTodayGitLogs(repoPath);
             }
         } else if (!diffSection) {
-            // Client mengirim gitLogs tapi belum ada diff -> coba ambil diff terbaru
+            // Client mengirim gitLogs tapi diff kosong -> fetch sekali saja, jangan dua kali
             try {
                 const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
                 diffSection = detailed.detailed;
-                // jika gitLogs client masih sama, pakai detailed logs yang lebih lengkap
-                if (gitLogs === detailed.logs) diffSection = detailed.detailed;
+                console.log(`[generate-combined] fetched diff only ${Date.now()-t0}ms`);
             } catch {
                 diffSection = '';
             }
+        } else {
+            console.log(`[generate-combined] reuse client gitLogs+diff (no fetch) diffLen=${String(diffSection).length}`);
         }
 
         const draft = await generateCombinedWithGemini(gitLogs || '', manualNotes, diffSection || '');
+        console.log(`[generate-combined] gemini done total ${Date.now()-t0}ms`);
         res.json({ draft, gitLogs: gitLogs || '', diffSection: diffSection || '' });
     } catch (error) {
+        console.error('[generate-combined] error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

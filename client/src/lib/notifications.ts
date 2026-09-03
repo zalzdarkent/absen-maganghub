@@ -2,7 +2,7 @@ import type { ToastKind } from '../types';
 
 const REMINDER_KEY_PREFIX = 'maganghub:daily-reminder:';
 const REMINDER_HOUR = 15;
-const REMINDER_MINUTE = 40;
+const REMINDER_MINUTE = 30;
 
 function todayKey(date = new Date()) {
   const year = date.getFullYear();

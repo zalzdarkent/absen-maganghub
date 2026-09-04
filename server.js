@@ -80,7 +80,7 @@ app.get('/api/status', async (req, res) => {
             // fallback ke log sederhana jika diff gagal (rate limit / token)
             gitLogs = await getTodayGitLogs(repoPath);
         }
-        const cache = getCache();
+        const cache = await getCache();
         const { todayDate } = todayStrings();
         const alreadyGenerated = cache.lastDate === todayDate && cache.lastLogs === gitLogs;
         res.json({ gitLogs, commits, detailed, hasCommitsToday: Boolean(gitLogs), alreadyGenerated, cache });
@@ -207,7 +207,7 @@ app.post('/api/entries', async (req, res) => {
         }
         const { todayDate, displayDate } = todayStrings();
         await appendEntry({ aktivitas, pembelajaran, kendala }, displayDate);
-        if (gitLogs !== undefined) saveCache(todayDate, gitLogs);
+        if (gitLogs !== undefined) await saveCache(todayDate, gitLogs);
         res.json({ ok: true });
     } catch (error) {
         res.status(500).json({ error: error.message });

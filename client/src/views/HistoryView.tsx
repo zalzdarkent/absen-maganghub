@@ -12,7 +12,7 @@ import { MonthNavigator } from "@/components/MonthNavigator";
 import { CalendarGrid } from "@/components/CalendarGrid";
 import { Heatmap } from "@/components/Heatmap";
 import { getEntriesByDate, getMonthMatrix, parseTanggal, toKey } from "@/lib/calendar";
-import { History, Calendar, FileText, ChevronRight, SearchX, Loader2, BookOpen, LayoutList, Grid3X3, Flame } from "lucide-react";
+import { History, Calendar, FileText, ChevronRight, SearchX, Loader2, BookOpen, LayoutList, Grid3X3 } from "lucide-react";
 
 function truncate(text: string, n: number) {
   if (!text) return "";

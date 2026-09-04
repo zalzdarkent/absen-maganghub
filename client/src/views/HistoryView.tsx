@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MonthNavigator } from "@/components/MonthNavigator";
 import { CalendarGrid } from "@/components/CalendarGrid";
 import { Heatmap } from "@/components/Heatmap";
+import { RecapCard } from "@/components/RecapCard";
 import { getEntriesByDate, getMonthMatrix, parseTanggal, toKey } from "@/lib/calendar";
 import { History, Calendar, FileText, ChevronRight, SearchX, Loader2, BookOpen, LayoutList, Grid3X3 } from "lucide-react";
 
@@ -290,6 +291,9 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
           )}
         </CardContent>
       </Card>
+
+      {/* Weekly / Monthly AI Recap — standalone, visible di kedua mode */}
+      <RecapCard entries={entries} />
 
       <EditEntryModal entry={editing} onClose={() => setEditing(null)} onSave={handleSave} onDelete={handleDelete} />
     </div>

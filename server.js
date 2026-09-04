@@ -8,6 +8,7 @@ import {
     createExcelExport,
     deleteEntry,
     generateCombinedWithGemini,
+    generateRecapWithGemini,
     generateWithGemini,
     generateManualWithGemini,
     getCache,
@@ -15,6 +16,7 @@ import {
     getTodayCommitsWithDiff,
     getTodayGitLogsDetailed,
     getCommitDiff,
+    parseTanggalForRecap,
     readEntries,
     saveCache,
     updateEntry,
@@ -194,6 +196,81 @@ app.post('/api/generate-combined', async (req, res) => {
         res.json({ draft, gitLogs: gitLogs || '', diffSection: diffSection || '' });
     } catch (error) {
         console.error('[generate-combined] error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Weekly / Monthly AI Recap (ringkasan dari banyak entri) ---
+app.post('/api/generate-recap', async (req, res) => {
+    try {
+        const periodRaw = String(req.body.period || 'weekly').trim().toLowerCase();
+        const period = periodRaw === 'monthly' ? 'monthly' : periodRaw === 'custom' ? 'custom' : periodRaw === 'all' ? 'all' : 'weekly';
+        const customStart = req.body.startDate ? String(req.body.startDate).trim() : null;
+        const customEnd = req.body.endDate ? String(req.body.endDate).trim() : null;
+        const month = req.body.month ? Number(req.body.month) : null;
+        const year = req.body.year ? Number(req.body.year) : null;
+
+        const allEntriesNewestFirst = await readEntries();
+        const chronological = [...allEntriesNewestFirst].reverse(); // oldest first for prompt sorting
+
+        let filtered = chronological;
+
+        if (period === 'weekly') {
+            // Prefer 7 hari terakhir berdasarkan tanggal, fallback ke 7 entri terakhir
+            const now = new Date();
+            now.setHours(12, 0, 0, 0);
+            const weekAgo = new Date(now);
+            weekAgo.setDate(now.getDate() - 7);
+            const byDate = chronological.filter((e) => {
+                const d = parseTanggalForRecap(e.tanggal);
+                return d && d.getTime() >= weekAgo.getTime() && d.getTime() <= now.getTime();
+            });
+            filtered = byDate.length >= 2 ? byDate : chronological.slice(-7);
+        } else if (period === 'monthly') {
+            if (year && month && month >= 1 && month <= 12) {
+                filtered = chronological.filter((e) => {
+                    const d = parseTanggalForRecap(e.tanggal);
+                    return d && d.getFullYear() === year && d.getMonth() + 1 === month;
+                });
+                if (filtered.length === 0) filtered = chronological.slice(-30);
+            } else {
+                const now = new Date();
+                const currentKey = now.getFullYear() * 100 + (now.getMonth() + 1);
+                const currentMonthEntries = chronological.filter((e) => {
+                    const d = parseTanggalForRecap(e.tanggal);
+                    return d && d.getFullYear() * 100 + (d.getMonth() + 1) === currentKey;
+                });
+                filtered = currentMonthEntries.length >= 2 ? currentMonthEntries : chronological.slice(-30);
+            }
+        } else if (period === 'custom' && customStart && customEnd) {
+            const start = parseTanggalForRecap(customStart) || new Date(customStart);
+            const end = parseTanggalForRecap(customEnd) || new Date(customEnd);
+            if (!start || isNaN(start.getTime()) || !end || isNaN(end.getTime())) {
+                return res.status(400).json({ error: 'Rentang tanggal custom tidak valid (pakai format dd/MM/yyyy).' });
+            }
+            // Normalize to noon for comparison
+            const s = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 12, 0, 0, 0).getTime();
+            const e = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 12, 0, 0, 0).getTime();
+            filtered = chronological.filter((entry) => {
+                const d = parseTanggalForRecap(entry.tanggal);
+                if (!d) return false;
+                const t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0).getTime();
+                return t >= s && t <= e;
+            });
+        } else if (period === 'all') {
+            filtered = chronological;
+        }
+
+        if (filtered.length === 0) {
+            return res.status(400).json({ error: 'Belum ada entri untuk periode ini. Isi logbook dulu minimal 1 hari.' });
+        }
+        if (filtered.length > 30) filtered = filtered.slice(-30);
+
+        console.log(`[recap] period=${period} count=${filtered.length} rentang=${filtered[0]?.tanggal} — ${filtered[filtered.length - 1]?.tanggal}`);
+        const recap = await generateRecapWithGemini(filtered, period === 'monthly' ? 'monthly' : 'weekly');
+        res.json({ recap, entries: filtered, period, count: filtered.length });
+    } catch (error) {
+        console.error('[generate-recap] error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });

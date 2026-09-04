@@ -140,17 +140,19 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRe
     let cancelled = false;
     async function fetchAutoDraft(showToastOnSuccess = false) {
       if (generating) return;
-      // jangan timpa draft yang sedang diedit user kecuali ini dari signal push
       if (draft && !showToastOnSuccess) return;
       try {
-        const data = await api<{
+        const res = await fetch('/api/auto-draft', { headers: { Accept: 'application/json' } });
+        if (res.status === 404) return; // belum ada draft - normal, jangan throw
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => null)) as {
           draft: DraftFields;
           gitLogs: string;
           detailed: string;
           commits: Commit[];
           dayKey: string;
           generatedAt: string;
-        }>('/api/auto-draft');
+        } | null;
         if (cancelled || !data?.draft) return;
         if (data.draft.aktivitas && data.draft.pembelajaran && data.draft.kendala) {
           setDraft(data.draft);
@@ -164,15 +166,16 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRe
           }
         }
       } catch {
-        // 404 = belum ada, abaikan
+        // network error / backend belum jalan - abaikan silent
       }
     }
 
-    // Saat mount: coba silent fetch (tanpa toast keras) jika belum ada draft
-    if (!draft) fetchAutoDraft(false);
-
-    // Saat signal dari App (klik push ?draft=ready): paksa fetch dengan toast
-    if (autoDraftSignal && autoDraftSignal > 0) fetchAutoDraft(true);
+    // Saat mount: coba silent fetch sekali saja
+    if (!draft && (!autoDraftSignal || autoDraftSignal === 0)) {
+      fetchAutoDraft(false);
+    } else if (autoDraftSignal && autoDraftSignal > 0) {
+      fetchAutoDraft(true);
+    }
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoDraftSignal]);

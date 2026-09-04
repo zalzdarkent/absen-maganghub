@@ -23,8 +23,8 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body,
     tag: data.tag || `maganghub-push-${Date.now()}`,
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
+    icon: '/logo-absen.png',
+    badge: '/logo-absen.png',
     data: { url: data.url || '/' },
     requireInteraction: false,
     // kalau tag kebetulan sama (misal reminder harian), tetap bunyi lagi, bukan replace diam-diam

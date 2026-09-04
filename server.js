@@ -362,6 +362,11 @@ async function handlePushReminder(req, res) {
     }
 }
 
-app.listen(PORT, () => {
-    console.log(`\n📒 MagangHub Logbook Dashboard jalan di http://localhost:${PORT}\n`);
-});
+// Hanya listen saat dijalankan lokal (node server.js), jangan saat di Vercel serverless
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`\n📒 MagangHub Logbook Dashboard jalan di http://localhost:${PORT}\n`);
+    });
+}
+
+export default app;

@@ -36,6 +36,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
   const [pushActive, setPushActive] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [pushServerOk, setPushServerOk] = useState<boolean | null>(null);
+  const [autoDraftLoading, setAutoDraftLoading] = useState(false);
 
   async function load() {
     try {
@@ -124,6 +125,18 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
       showToast(err instanceof Error ? err.message : 'Gagal kirim test push', 'error');
     } finally {
       setPushLoading(false);
+    }
+  }
+
+  async function handleTestAutoDraft() {
+    setAutoDraftLoading(true);
+    try {
+      await api('/api/auto-draft/generate', { method: 'POST' });
+      showToast('Draft test siap — buka tab Generate untuk cek', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal generate auto-draft', 'error');
+    } finally {
+      setAutoDraftLoading(false);
     }
   }
 
@@ -264,6 +277,23 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
                 </div>
               </div>
             </div>
+
+            {!isVercel && (
+              <div className="rounded-xl border border-dashed bg-muted/10 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Test Auto-Draft 16.00</p>
+                    <p className="max-w-[50ch] text-xs leading-relaxed text-muted-foreground">
+                      Generate draft otomatis sekarang tanpa tunggu cron. Hanya di lokal.
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" disabled={autoDraftLoading} onClick={handleTestAutoDraft} className="rounded-full" size="sm">
+                    {autoDraftLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Test Auto-Draft
+                  </Button>
+                </div>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>

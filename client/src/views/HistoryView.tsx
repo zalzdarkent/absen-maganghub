@@ -11,7 +11,7 @@ import { MonthNavigator } from "@/components/MonthNavigator";
 import { CalendarGrid } from "@/components/CalendarGrid";
 import { Heatmap } from "@/components/Heatmap";
 import { RecapCard } from "@/components/RecapCard";
-import { getEntriesByDate, getMonthMatrix, parseTanggal, toKey } from "@/lib/calendar";
+import { getEntriesByDate, getMonthMatrix, toKey } from "@/lib/calendar";
 import { History, Calendar, FileText, ChevronRight, SearchX, Loader2, LayoutList, Grid3X3 } from "lucide-react";
 
 function truncate(text: string, n: number) {
@@ -75,16 +75,16 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
     return getMonthMatrix(currentMonth.getFullYear(), currentMonth.getMonth());
   }, [currentMonth]);
 
-  const filteredForMonth = useMemo(() => {
-    if (!entries) return [];
-    const y = currentMonth.getFullYear();
-    const m = currentMonth.getMonth();
-    return entries.filter((e) => {
-      const d = parseTanggal(e.tanggal);
-      if (!d) return false;
-      return d.getFullYear() === y && d.getMonth() === m;
-    });
-  }, [entries, currentMonth]);
+  // const filteredForMonth = useMemo(() => {
+  //   if (!entries) return [];
+  //   const y = currentMonth.getFullYear();
+  //   const m = currentMonth.getMonth();
+  //   return entries.filter((e) => {
+  //     const d = parseTanggal(e.tanggal);
+  //     if (!d) return false;
+  //     return d.getFullYear() === y && d.getMonth() === m;
+  //   });
+  // }, [entries, currentMonth]);
 
   const handlePrev = () => setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1, 12, 0, 0, 0));
   const handleNext = () => setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1, 12, 0, 0, 0));

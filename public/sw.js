@@ -5,7 +5,7 @@
  */
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Reminder logbook MagangHub', body: 'Sudah jam 15.40, jangan lupa generate logbook hari ini ya.', tag: 'daily-reminder', url: '/' };
+  let data = { title: 'Draft logbook siap', body: 'Draft hari ini sudah jadi. Klik untuk cek dan lengkapi.', tag: 'draft-ready', url: '/?draft=ready' };
   try {
     if (event.data) {
       const parsed = event.data.json();
@@ -36,15 +36,19 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/?draft=ready';
   event.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of windows) {
         try {
           const url = new URL(client.url);
-          if (url.pathname === targetUrl || targetUrl === '/') {
+          const target = new URL(targetUrl, self.location.origin);
+          if (url.origin === target.origin) {
             await client.focus();
+            if ('navigate' in client && client.url !== target.href) {
+              try { await client.navigate(target.href); } catch {}
+            }
             return;
           }
         } catch {

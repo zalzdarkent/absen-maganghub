@@ -23,6 +23,7 @@ import {
 } from './lib/logbook.js';
 import { getEffectiveRepoPath, getSettingsForDisplay, saveSettings } from './lib/settings.js';
 import {
+    buildDraftReadyPayload,
     buildReminderPayload,
     getVapidKeys,
     isPushConfigured,
@@ -34,6 +35,7 @@ import {
     shouldSendDailyReminder,
     todayKeyWIB,
 } from './lib/push.js';
+import { getAutoDraft, saveAutoDraft, clearAutoDraft } from './lib/autoDraft.js';
 
 dotenv.config();
 
@@ -285,6 +287,7 @@ app.post('/api/entries', async (req, res) => {
         const { todayDate, displayDate } = todayStrings();
         await appendEntry({ aktivitas, pembelajaran, kendala }, displayDate);
         if (gitLogs !== undefined) await saveCache(todayDate, gitLogs);
+        try { await clearAutoDraft(); } catch {}
         res.json({ ok: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -408,7 +411,54 @@ app.post('/api/push/send', async (req, res) => {
     }
 });
 
-// Dipanggil Vercel Cron tiap hari 08:40 UTC (=15:40 WIB) + bisa dipanggil manual
+// --- Auto Draft: get / clear / manual generate ---
+app.get('/api/auto-draft', async (req, res) => {
+    try {
+        const data = await getAutoDraft();
+        if (!data || !data.draft || !data.dayKey) return res.status(404).json({ error: 'Belum ada draft otomatis' });
+        const today = todayKeyWIB();
+        if (data.dayKey !== today) return res.status(404).json({ error: 'Draft kadaluarsa' });
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/auto-draft', async (req, res) => {
+    try {
+        await clearAutoDraft();
+        res.json({ ok: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/auto-draft/generate', async (req, res) => {
+    try {
+        const repoPath = await getEffectiveRepoPath();
+        let gitLogs = '';
+        let detailed = '';
+        let commits = [];
+        try {
+            const result = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
+            gitLogs = result.logs;
+            detailed = result.detailed;
+            commits = result.commits || [];
+        } catch (e) {
+            gitLogs = await getTodayGitLogs(repoPath);
+        }
+        if (!gitLogs) return res.status(400).json({ error: 'Belum ada commit hari ini' });
+        const draft = await generateWithGemini(gitLogs, detailed);
+        const dayKey = todayKeyWIB();
+        const payload = { dayKey, draft, gitLogs, detailed, commits, generatedAt: new Date().toISOString() };
+        await saveAutoDraft(payload);
+        res.json(payload);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Dipanggil Vercel Cron tiap hari 09:00 UTC (=16:00 WIB) + bisa dipanggil manual
 app.get('/api/push-reminder', handlePushReminder);
 app.post('/api/push-reminder', handlePushReminder);
 
@@ -429,11 +479,47 @@ async function handlePushReminder(req, res) {
         if (!force && !(await shouldSendDailyReminder(dayKey))) {
             return res.json({ ok: true, skipped: true, dayKey });
         }
-        const payload = buildReminderPayload();
+
+        // Try to generate draft automatically (16.00 flow). If fails or no commits, fallback to simple reminder.
+        let payload = null;
+        let autoDraftPayload = null;
+        let commitCount = 0;
+        try {
+            const repoPath = await getEffectiveRepoPath();
+            let gitLogs = '';
+            let detailed = '';
+            let commits = [];
+            try {
+                const resultDetailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
+                gitLogs = resultDetailed.logs;
+                detailed = resultDetailed.detailed;
+                commits = resultDetailed.commits || [];
+            } catch (e) {
+                console.warn('[push-reminder] detailed fetch gagal, fallback simple:', e.message);
+                try { gitLogs = await getTodayGitLogs(repoPath); } catch {}
+            }
+            if (gitLogs && String(gitLogs).trim()) {
+                commitCount = commits.length || String(gitLogs).split('\n').filter(Boolean).length;
+                try {
+                    const draft = await generateWithGemini(gitLogs, detailed);
+                    autoDraftPayload = { dayKey, draft, gitLogs, detailed, commits, generatedAt: new Date().toISOString() };
+                    await saveAutoDraft(autoDraftPayload);
+                    payload = buildDraftReadyPayload(commitCount);
+                    console.log(`[push-reminder] auto-draft generated commits=${commitCount} dayKey=${dayKey}`);
+                } catch (e) {
+                    console.warn('[push-reminder] generate draft gagal, fallback reminder:', e.message);
+                }
+            } else {
+                console.log('[push-reminder] no commits today, send simple reminder');
+            }
+        } catch (e) {
+            console.warn('[push-reminder] auto-draft flow error:', e.message);
+        }
+
+        if (!payload) payload = buildReminderPayload();
         const result = await sendReminderToAll(payload);
-        // Tandai terkirim walau 0 subscriber agar cron tidak spam retry; kirim ulang bisa pakai ?force=1
         await markDailyReminderSent(dayKey);
-        res.json({ ok: true, dayKey, ...result });
+        res.json({ ok: true, dayKey, commitCount, autoDraft: Boolean(autoDraftPayload), ...result });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

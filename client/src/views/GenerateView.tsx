@@ -19,6 +19,7 @@ interface Props {
   gitLogs: string;
   commits: Commit[];
   detailed: string;
+  autoDraftSignal?: number;
   onRefreshCommits: () => void;
   onGeneratedGitLogs: (gitLogs: string, detailed: string, commits?: Commit[]) => void;
   onSaved: () => void;
@@ -53,7 +54,7 @@ function ProgressBar({ len }: { len: number }) {
   );
 }
 
-export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onGeneratedGitLogs, onSaved }: Props) {
+export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRefreshCommits, onGeneratedGitLogs, onSaved }: Props) {
   const { showToast } = useToast();
   const [draft, setDraft] = useState<DraftFields | null>(null);
   const [manualMode, setManualMode] = useState(false);
@@ -133,6 +134,48 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
     );
     setAutoSavedAt(savedAt);
   }, [draft, manualMode, lastMode, lastCombinedNotes, lastManualNotes]);
+
+  // Auto-draft 16.00: ambil draft yang sudah di-generate cron
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchAutoDraft(showToastOnSuccess = false) {
+      if (generating) return;
+      // jangan timpa draft yang sedang diedit user kecuali ini dari signal push
+      if (draft && !showToastOnSuccess) return;
+      try {
+        const data = await api<{
+          draft: DraftFields;
+          gitLogs: string;
+          detailed: string;
+          commits: Commit[];
+          dayKey: string;
+          generatedAt: string;
+        }>('/api/auto-draft');
+        if (cancelled || !data?.draft) return;
+        if (data.draft.aktivitas && data.draft.pembelajaran && data.draft.kendala) {
+          setDraft(data.draft);
+          setLastMode('commit');
+          setManualMode(false);
+          if (data.gitLogs !== undefined) onGeneratedGitLogs(data.gitLogs || '', data.detailed || '', data.commits);
+          if (showToastOnSuccess) {
+            toast.success('Draft jam 16.00 siap', { description: 'Klik Tambah catatan untuk lengkapi dengan meeting.' });
+          } else {
+            showToast('Draft otomatis jam 16.00 siap — silakan cek', 'info');
+          }
+        }
+      } catch {
+        // 404 = belum ada, abaikan
+      }
+    }
+
+    // Saat mount: coba silent fetch (tanpa toast keras) jika belum ada draft
+    if (!draft) fetchAutoDraft(false);
+
+    // Saat signal dari App (klik push ?draft=ready): paksa fetch dengan toast
+    if (autoDraftSignal && autoDraftSignal > 0) fetchAutoDraft(true);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDraftSignal]);
 
   async function runGenerate() {
     startTimer('Menyusun draft...');
@@ -294,6 +337,8 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       });
       await downloadExcel();
       showToast('Tersimpan', 'success');
+      // hapus auto-draft setelah berhasil simpan
+      try { await api('/api/auto-draft', { method: 'DELETE' }); } catch {}
       resetDraft();
       onSaved();
     } catch (err) {

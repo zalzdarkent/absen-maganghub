@@ -122,6 +122,22 @@ export default function App() {
   const [statusKind, setStatusKind] = useState<StatusKind>('idle');
   const [statusText, setStatusText] = useState('memeriksa…');
   const [historyReloadKey, setHistoryReloadKey] = useState(0);
+  const [autoDraftSignal, setAutoDraftSignal] = useState(0);
+
+  // Deep-link dari push: ?draft=ready → buka tab Generate
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('draft') === 'ready') {
+        setTab('generate');
+        setAutoDraftSignal((k) => k + 1);
+        // bersihkan URL biar tidak reload terus
+        const url = new URL(window.location.href);
+        url.searchParams.delete('draft');
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+      }
+    } catch {}
+  }, []);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -189,6 +205,7 @@ export default function App() {
             gitLogs={gitLogs}
             commits={commits}
             detailed={detailed}
+            autoDraftSignal={autoDraftSignal}
             onRefreshCommits={loadStatus}
             onGeneratedGitLogs={(logs, det, newCommits) => {
               setGitLogs(logs);

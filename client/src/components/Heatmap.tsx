@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { getHeatmapWeeks, toKey, isWeekend, isFuture } from "@/lib/calendar";
 import type { LogbookEntry } from "../types";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 interface Props {
   entries: LogbookEntry[];
@@ -11,7 +11,6 @@ interface Props {
 function HeatCell({ date, hasEntry, isWeekendDay, isFutureDay, isThisYear }: { date: Date; hasEntry: boolean; isWeekendDay: boolean; isFutureDay: boolean; isThisYear: boolean }) {
   const [hover, setHover] = useState(false);
   const key = toKey(date);
-  // level: 0 none, 1 weekend, 2 future, 3 filled
   let bg = "bg-muted";
   let title = `${key}`;
   if (hasEntry) {
@@ -32,9 +31,9 @@ function HeatCell({ date, hasEntry, isWeekendDay, isFutureDay, isThisYear }: { d
   }
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       <div
-        className={cn("h-[11px] w-[11px] rounded-[2px] transition-colors sm:h-[12px] sm:w-[12px]", bg)}
+        className={cn("aspect-square w-full rounded-[2px] transition-colors", bg)}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         aria-label={title}
@@ -101,32 +100,38 @@ export function Heatmap({ entries, year }: Props) {
       </div>
 
       <div className="overflow-x-auto px-3 pb-3">
-        {/* month labels */}
-        <div className="relative mb-1 ml-[28px] hidden h-4 sm:block">
-          {monthLabels.map(({ month, col }) => (
-            <span key={`${month}-${col}`} className="absolute font-mono text-[10px] text-muted-foreground capitalize" style={{ left: `${col * 14}px` }}>
-              {month}
-            </span>
-          ))}
-        </div>
+        {/* Single grid: 1 label column + 53 week columns, 1 header row + 7 day rows */}
+        <div
+          className="grid gap-1 w-full min-w-[560px]"
+          style={{
+            gridTemplateColumns: `28px repeat(${weeks.length}, minmax(0, 1fr))`,
+            gridTemplateRows: `16px repeat(7, minmax(0, 1fr))`,
+          }}
+        >
+          {/* top-left empty */}
+          <div className="hidden sm:block" />
+          {/* month labels */}
+          {weeks.map((week, col) => {
+            const sample = week[3] || week[0];
+            const label = sample && sample.getFullYear() === targetYear ? monthLabels.find((l) => l.col === col)?.month ?? '' : '';
+            return (
+              <span key={`m-${col}`} className="hidden sm:flex items-center truncate font-mono text-[10px] capitalize leading-none text-muted-foreground">
+                {label}
+              </span>
+            );
+          })}
 
-        <div className="flex gap-1">
-          {/* weekday labels */}
-          <div className="flex flex-col gap-1 pr-2 pt-1 font-mono text-[10px] leading-none text-muted-foreground">
-            <span className="h-[11px] sm:h-[12px]">Sen</span>
-            <span className="h-[11px] sm:h-[12px]">&nbsp;</span>
-            <span className="h-[11px] sm:h-[12px]">Rab</span>
-            <span className="h-[11px] sm:h-[12px]">&nbsp;</span>
-            <span className="h-[11px] sm:h-[12px]">Jum</span>
-            <span className="h-[11px] sm:h-[12px]">&nbsp;</span>
-            <span className="h-[11px] sm:h-[12px]">&nbsp;</span>
-          </div>
-
-          {/* weeks grid */}
-          <div className="flex gap-1">
-            {weeks.map((week, wi) => (
-              <div key={wi} className="flex flex-col gap-1">
-                {week.map((date) => {
+          {/* weekday rows + cells */}
+          {Array.from({ length: 7 }).map((_, rowIdx) => {
+            const weekdayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+            return (
+              <Fragment key={rowIdx}>
+                <span className="flex items-center pr-1 font-mono text-[10px] leading-none text-muted-foreground">
+                  {weekdayNames[rowIdx]}
+                </span>
+                {weeks.map((week, colIdx) => {
+                  const date = week[rowIdx];
+                  if (!date) return <div key={`${colIdx}-${rowIdx}`} />;
                   const key = toKey(date);
                   const hasEntry = map.has(key);
                   const weekend = isWeekend(date);
@@ -134,9 +139,9 @@ export function Heatmap({ entries, year }: Props) {
                   const isThisYear = date.getFullYear() === targetYear;
                   return <HeatCell key={key} date={date} hasEntry={hasEntry} isWeekendDay={weekend} isFutureDay={future} isThisYear={isThisYear} />;
                 })}
-              </div>
-            ))}
-          </div>
+              </Fragment>
+            );
+          })}
         </div>
       </div>
 

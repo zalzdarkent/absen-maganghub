@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/push-reminder?source=cron",
-      "schedule": "40 8 * * *"
+      "schedule": "0 9 * * *"
     }
   ],
   "functions": {

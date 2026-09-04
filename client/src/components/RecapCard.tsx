@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Sparkles, CalendarDays, FileText, Copy, Download, Lightbulb, CheckCircle2, Flame, RefreshCw, AlertCircle } from "lucide-react";
+import { Sparkles, CalendarDays, FileText, Copy, Download, CheckCircle2, RefreshCw, AlertCircle } from "lucide-react";
 import type { LogbookEntry } from "../types";
 
 interface Recap {
@@ -70,7 +70,7 @@ export function RecapCard({ entries }: Props) {
       setRecap(data.recap);
       setMeta({ period: data.period, count: data.count, rentang: data.recap.rentang || data.entries[0]?.tanggal + " — " + data.entries[data.entries.length - 1]?.tanggal });
       const secs = ((Date.now() - startRef.current) / 1000).toFixed(1);
-      showToast(`Rekap ${period === "weekly" ? "mingguan" : "bulanan"} selesai dalam ${secs}s ✔`, "success");
+      showToast(`Rekap ${period === "weekly" ? "mingguan" : "bulanan"} selesai dalam ${secs}s`, "success");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Gagal generate rekap", "error");
     } finally {
@@ -81,7 +81,7 @@ export function RecapCard({ entries }: Props) {
   function handleCopy() {
     if (!recap || !meta) return;
     const text = `REKAP ${meta.period.toUpperCase()} (${meta.rentang}) — ${meta.count} hari\n\nRINGKASAN:\n${recap.ringkasan}\n\nHIGHLIGHTS:\n${recap.highlights.map((h, i) => `${i + 1}. ${h}`).join("\n")}\n\nKENDALA TERATASI:\n${recap.kendalaTeratasi}\n\nSARAN:\n${recap.saran}`;
-    navigator.clipboard.writeText(text).then(() => showToast("Rekap disalin ke clipboard ✔", "success")).catch(() => showToast("Gagal menyalin", "error"));
+    navigator.clipboard.writeText(text).then(() => showToast("Disalin", "success")).catch(() => showToast("Gagal menyalin", "error"));
   }
 
   function handleDownload() {
@@ -107,18 +107,14 @@ export function RecapCard({ entries }: Props) {
               <Sparkles className="h-4.5 w-4.5" />
             </div>
             <div>
-              <CardTitle className="flex items-center gap-2 text-[15px]">
-                Rekap AI — Mingguan & Bulanan
-                <Badge variant="success" className="rounded-full text-[10px]">Gemini</Badge>
-              </CardTitle>
+              <CardTitle className="text-[15px]">Rekap</CardTitle>
               <CardDescription className="mt-1 max-w-[60ch] text-xs leading-relaxed">
-                Rangkum 7 hari jadi 1 paragraf mingguan, atau 30 hari jadi rekap bulanan. Siap copy untuk laporan MagangHub.
+                Ringkas logbook jadi laporan mingguan atau bulanan.
               </CardDescription>
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-1.5 rounded-full border bg-muted px-3 py-1 font-mono text-[11px] text-muted-foreground">
-            <Flame className="h-3 w-3 text-amber-500" />
-            {hasEntries ? `${entries!.length} entri siap direkap` : "Menunggu entri"}
+            {hasEntries ? `${entries!.length} entri` : "Belum ada entri"}
           </div>
         </div>
       </CardHeader>
@@ -157,23 +153,10 @@ export function RecapCard({ entries }: Props) {
 
         {hasEntries && !recap && !loading && (
           <div className="rounded-xl border border-dashed bg-muted/20 p-5 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-background border shadow-sm">
-              <Lightbulb className="h-5 w-5 text-amber-500" />
-            </div>
-            <p className="mt-3 text-sm font-medium">Belum ada rekap</p>
-            <p className="mx-auto mt-1 max-w-[48ch] text-xs leading-relaxed text-muted-foreground">
-              Klik <span className="font-medium text-foreground">Rekap Mingguan</span> untuk 7 hari terakhir, atau <span className="font-medium text-foreground">Rekap Bulanan</span> untuk 30 hari/bulan ini. AI akan baca semua entri dan bikin ringkasan siap submit.
+            <p className="text-sm font-medium">Belum ada rekap</p>
+            <p className="mx-auto mt-1 max-w-[36ch] text-xs leading-relaxed text-muted-foreground">
+              Pilih rekap mingguan atau bulanan untuk mulai.
             </p>
-            <div className="mt-4 grid gap-2 text-left sm:grid-cols-2">
-              <div className="rounded-lg border bg-card p-3">
-                <p className="text-xs font-semibold">📅 Mingguan</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Cocok buat laporan weekly ke mentor. 7 hari terakhir, ringkas kronologis.</p>
-              </div>
-              <div className="rounded-lg border bg-card p-3">
-                <p className="text-xs font-semibold">🗓️ Bulanan</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Buat rekap Kemnaker. 30 hari / bulan berjalan, highlight tren.</p>
-              </div>
-            </div>
           </div>
         )}
 
@@ -183,8 +166,8 @@ export function RecapCard({ entries }: Props) {
               <RefreshCw className="h-4 w-4 animate-spin text-primary" />
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium leading-none">Merangkum {loading === "weekly" ? "7" : "30"} entri…</p>
-              <p className="mt-1 font-mono text-xs text-muted-foreground">Gemini lagi baca semua logbook periode ini • mohon tunggu 5-15 detik</p>
+              <p className="text-sm font-medium leading-none">Menyusun rekap...</p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">Mohon tunggu</p>
             </div>
             <Badge variant="secondary" className="rounded-full font-mono text-xs tabular-nums">{elapsed.toFixed(1)}s</Badge>
           </div>
@@ -219,7 +202,7 @@ export function RecapCard({ entries }: Props) {
 
             <div className="rounded-xl border bg-card p-4">
               <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Highlights
+                Highlights
               </p>
               <ul className="mt-2 space-y-1.5">
                 {recap.highlights.map((h, i) => (
@@ -239,8 +222,8 @@ export function RecapCard({ entries }: Props) {
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{recap.kendalaTeratasi}</p>
               </div>
               <div className="rounded-xl border bg-amber-500/10 p-4">
-                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">
-                  <Lightbulb className="h-3.5 w-3.5" /> Saran Periode Depan
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Saran
                 </p>
                 <p className="mt-2 text-sm leading-relaxed">{recap.saran}</p>
               </div>
@@ -249,7 +232,7 @@ export function RecapCard({ entries }: Props) {
             <div className="flex items-center justify-between border-t pt-3">
               <p className="font-mono text-[11px] text-muted-foreground">Rentang: {recap.rentang} • {recap.totalHari} hari terhitung</p>
               <Button variant="ghost" size="sm" className="h-7 rounded-full text-xs" onClick={() => handleGenerate(meta.period as "weekly" | "monthly")}>
-                <RefreshCw className="h-3.5 w-3.5" /> Generate ulang
+                <RefreshCw className="h-3.5 w-3.5" /> Ulangi
               </Button>
             </div>
           </div>

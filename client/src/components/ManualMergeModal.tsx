@@ -4,9 +4,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Sparkles, GitCommit, Lightbulb, Loader2 } from 'lucide-react';
+import { GitCommit, Lightbulb, Loader2 } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -44,21 +43,16 @@ export function ManualMergeModal({ open, gitLogs, commits, onClose, onSubmit, su
 
   const hint =
     count === 0
-      ? 'Tidak ada commit hari ini, isi catatan minimal 5 karakter untuk generate dari catatan.'
-      : `Siap gabungkan ${count} commit + diff + catatan → hasil paling akurat ✨ (minimal 5 karakter)`;
+      ? 'Tidak ada commit hari ini. Isi catatan minimal 5 karakter.'
+      : `Akan digabung dengan ${count} commit (minimal 5 karakter)`;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-[560px] gap-0 p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-4">
-          <div className="flex items-center gap-2">
-            <Badge className="rounded-full bg-primary text-primary-foreground gap-1">
-              <Sparkles className="h-3 w-3" /> Rekomendasi
-            </Badge>
-            <DialogTitle className="text-base">Gabungkan biar AI lebih akurat</DialogTitle>
-          </div>
+          <DialogTitle className="text-base">Tambah catatan</DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
-            Tambahkan konteks meeting, diskusi, atau pembelajaran di luar commit. AI akan menggabungkan semuanya.
+            Tambahkan konteks meeting atau pembelajaran di luar commit.
           </DialogDescription>
         </DialogHeader>
         <Separator />
@@ -76,7 +70,7 @@ export function ManualMergeModal({ open, gitLogs, commits, onClose, onSubmit, su
             </Label>
             <div className="rounded-lg border bg-muted/30 p-3 max-h-[132px] overflow-y-auto space-y-1">
               {count === 0 ? (
-                <span className="text-xs text-muted-foreground">(tidak ada commit hari ini — nanti AI akan pakai catatan manual saja)</span>
+                <span className="text-xs text-muted-foreground">Tidak ada commit hari ini.</span>
               ) : (
                 <>
                   {previewLines.map((l, i) => (
@@ -84,7 +78,7 @@ export function ManualMergeModal({ open, gitLogs, commits, onClose, onSubmit, su
                       {l}
                     </div>
                   ))}
-                  {count > 4 && <div className="text-xs text-muted-foreground pt-1">+{count - 4} commit lainnya…</div>}
+                  {count > 4 && <div className="text-xs text-muted-foreground pt-1">+{count - 4} lainnya</div>}
                 </>
               )}
             </div>
@@ -100,7 +94,7 @@ export function ManualMergeModal({ open, gitLogs, commits, onClose, onSubmit, su
               rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Contoh: Selain itu juga mengikuti meeting dengan enduser terkait progress dan validasi data, 1 dashboard sudah bisa dipakai tanggal 1, dashboard lain tinggal finishing…"
+              placeholder="Contoh: Mengikuti meeting progress dan validasi data..."
               className="min-h-[96px] resize-y text-sm leading-relaxed"
             />
             <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
@@ -114,8 +108,8 @@ export function ManualMergeModal({ open, gitLogs, commits, onClose, onSubmit, su
               Batal
             </Button>
             <Button type="submit" disabled={submitting} className="gap-1.5 shadow-sm">
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {submitting ? 'Menggabungkan…' : 'Gabungkan & Generate ✨'}
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {submitting ? 'Menyusun...' : 'Buat draft'}
             </Button>
           </div>
         </form>

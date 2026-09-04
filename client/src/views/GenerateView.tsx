@@ -62,7 +62,7 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
   const [lastManualNotes, setLastManualNotes] = useState('');
 
   const [generating, setGenerating] = useState(false);
-  const [generateLabel, setGenerateLabel] = useState('meracik draft…');
+  const [generateLabel, setGenerateLabel] = useState('Menyusun draft...');
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -83,9 +83,9 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
     timerRef.current = setInterval(() => {
       const sec = (Date.now() - startRef.current) / 1000;
       setElapsed(sec);
-      if (sec > 25) setGenerateLabel('hampir selesai… jika >35 detik akan auto-retry ke model cepat');
-      else if (sec > 15) setGenerateLabel('sedikit lagi… diff sedang dianalisis Gemini');
-      else if (sec > 8) setGenerateLabel('masih meracik… (Gemini + diff biasanya 5-15 detik)');
+      if (sec > 25) setGenerateLabel('Hampir selesai...');
+      else if (sec > 15) setGenerateLabel('Sedikit lagi...');
+      else if (sec > 8) setGenerateLabel('Menyusun draft...');
     }, 200);
   }
   function stopTimer() {
@@ -135,7 +135,7 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
   }, [draft, manualMode, lastMode, lastCombinedNotes, lastManualNotes]);
 
   async function runGenerate() {
-    startTimer('meracik dari commit + diff…');
+    startTimer('Menyusun draft...');
     try {
       const data = await api<GenerateResponse>('/api/generate', { method: 'POST' });
       onGeneratedGitLogs(data.gitLogs || '', data.diffSection || '', data.commits);
@@ -143,11 +143,11 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       setManualMode(false);
       setDraft(data.draft);
       const secs = ((Date.now() - startRef.current) / 1000).toFixed(1);
-      toast.success('Draft laporan selesai dibuat', {
-        description: `Draft dari commit jadi dalam ${secs}s ✔ (diff diperhitungkan)`,
+      toast.success('Draft selesai', {
+        description: `Selesai dalam ${secs}s`,
       });
-      notifyDesktop('Draft laporan selesai dibuat', {
-        body: `Draft dari commit jadi dalam ${secs}s. Silakan cek dan simpan ke Excel.`,
+      notifyDesktop('Draft selesai', {
+        body: `Draft selesai dalam ${secs}s. Silakan cek dan simpan.`,
         tag: 'draft-ready',
       });
     } catch (err) {
@@ -163,7 +163,7 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       setManualModalOpen(true);
       return;
     }
-    startTimer('menggabungkan commit + diff + catatan… ✨');
+    startTimer('Menyusun draft...');
     try {
       const data = await api<GenerateCombinedResponse>('/api/generate-combined', {
         method: 'POST',
@@ -176,11 +176,11 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       setDraft(data.draft);
       setManualMode(false);
       const secs = ((Date.now() - startRef.current) / 1000).toFixed(1);
-      toast.success('Draft laporan selesai dibuat', {
-        description: `Draft gabungan jadi dalam ${secs}s — paling akurat ✨`,
+      toast.success('Draft selesai', {
+        description: `Selesai dalam ${secs}s`,
       });
-      notifyDesktop('Draft laporan selesai dibuat', {
-        body: `Draft gabungan jadi dalam ${secs}s. Silakan cek dan simpan ke Excel.`,
+      notifyDesktop('Draft selesai', {
+        body: `Draft selesai dalam ${secs}s. Silakan cek dan simpan.`,
         tag: 'draft-ready',
       });
     } catch (err) {
@@ -205,7 +205,7 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
     }
 
     setModalSubmitting(true);
-    startTimer(hasCommits ? 'menggabungkan commit + diff + catatan… ✨' : 'menyusun dari catatan…');
+    startTimer('Menyusun draft...');
     try {
       const data = await api<GenerateCombinedResponse>('/api/generate-combined', {
         method: 'POST',
@@ -221,11 +221,11 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
       setDraft(data.draft);
       setManualModalOpen(false);
       const secs = ((Date.now() - startRef.current) / 1000).toFixed(1);
-      toast.success('Draft laporan selesai dibuat', {
-        description: `Draft gabungan jadi dalam ${secs}s — paling akurat ✨ (diff diperhitungkan)`,
+      toast.success('Draft selesai', {
+        description: `Selesai dalam ${secs}s`,
       });
-      notifyDesktop('Draft laporan selesai dibuat', {
-        body: `Draft gabungan jadi dalam ${secs}s. Silakan cek dan simpan ke Excel.`,
+      notifyDesktop('Draft selesai', {
+        body: `Draft selesai dalam ${secs}s. Silakan cek dan simpan.`,
         tag: 'draft-ready',
       });
     } catch (err) {
@@ -243,18 +243,18 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
     }
     if (lastMode === 'manual' && lastManualNotes) {
       setRegenerating(true);
-      startTimer('menyusun ulang dari catatan manual…');
+      startTimer('Menyusun draft...');
       try {
         const data = await api<GenerateManualResponse>('/api/generate-manual', {
           method: 'POST',
           body: JSON.stringify({ description: lastManualNotes }),
         });
         setDraft(data.draft);
-        toast.success('Draft laporan diperbarui', {
-          description: 'Generate ulang selesai dan draft siap dicek.',
+        toast.success('Draft diperbarui', {
+          description: 'Draft siap dicek.',
         });
-        notifyDesktop('Draft laporan diperbarui', {
-          body: 'Generate ulang selesai dan draft siap dicek.',
+        notifyDesktop('Draft diperbarui', {
+          body: 'Draft siap dicek.',
           tag: 'draft-ready',
         });
       } catch (e) {
@@ -277,8 +277,8 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
   async function handleSave() {
     if (!draft) return;
     const { aktivitas, pembelajaran, kendala } = draft;
-    if (aktivitas.trim().length < 100 || pembelajaran.trim().length < 100 || kendala.trim().length < 100) {
-      showToast('Tiap field minimal 100 karakter (cek penghitung di bawah textarea).', 'error');
+      if (aktivitas.trim().length < 100 || pembelajaran.trim().length < 100 || kendala.trim().length < 100) {
+      showToast('Tiap field minimal 100 karakter.', 'error');
       return;
     }
     setSaving(true);
@@ -293,7 +293,7 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
         }),
       });
       await downloadExcel();
-      showToast('Tersimpan dan Excel berhasil di-download ✔', 'success');
+      showToast('Tersimpan', 'success');
       resetDraft();
       onSaved();
     } catch (err) {
@@ -340,12 +340,6 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
           <div className="max-h-[480px] overflow-y-auto" aria-live="polite">
             <CommitLog gitLogs={gitLogs} commits={commits} />
           </div>
-          <div className="border-t bg-muted/20 px-4 py-2.5 flex items-center justify-between">
-            <span className="font-mono text-[11px] text-muted-foreground flex items-center gap-1.5">
-              <Clock className="h-3 w-3" /> auto-refresh saat generate
-            </span>
-            <Badge variant="secondary" className="rounded-full font-mono text-[10px]">diff ready</Badge>
-          </div>
         </CardContent>
       </Card>
 
@@ -361,18 +355,16 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
                 Draft Logbook
               </CardTitle>
               <CardDescription className="text-xs leading-relaxed max-w-[52ch]">
-                AI akan menulis 3 bagian wajib minimal 100 karakter.
+                Tiga bagian: aktivitas, pembelajaran, kendala.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 self-start">
               <Button variant="outline" size="sm" className="rounded-full" onClick={() => setManualModalOpen(true)}>
-                <Sparkles className="h-3.5 w-3.5" />
-                Merge & Generate
-                <Badge variant="success" className="ml-1 rounded-full px-1.5 py-0 text-[10px]">✨ Rekomen</Badge>
+                Tambah catatan
               </Button>
               <Button size="sm" className="rounded-full shadow-sm" disabled={generating} onClick={runGenerate}>
                 {generating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                {generating && lastMode !== 'combined' ? 'Meracik…' : 'Generate dari Commit'}
+                {generating ? 'Menyusun...' : 'Buat draft'}
               </Button>
             </div>
           </div>
@@ -385,22 +377,8 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
                 <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
               </div>
               <p className="text-sm font-medium">Belum ada draft</p>
-              <p className="mx-auto mt-1 max-w-[48ch] text-xs leading-relaxed text-muted-foreground">
-                Mulai dengan commit harianmu, atau gabungkan dengan catatan meeting untuk hasil yang lebih lengkap.
-              </p>
-              <div className="mt-4 grid gap-2 text-left sm:grid-cols-2">
-                <div className="rounded-lg border bg-card p-3">
-                  <p className="flex items-center gap-1.5 text-xs font-semibold"><GitCommit className="h-3.5 w-3.5 text-primary" /> Commit saja</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Klik <span className="font-medium text-foreground">Generate dari Commit</span> — cepat untuk hari coding fokus.</p>
-                </div>
-                <div className="rounded-lg border bg-card p-3 ring-1 ring-primary/20">
-                  <p className="flex items-center gap-1.5 text-xs font-semibold text-primary"><Sparkles className="h-3.5 w-3.5" /> Paling akurat ⭐</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Klik <span className="font-medium text-foreground">Merge & Generate</span> lalu isi meeting/belajar.</p>
-                </div>
-              </div>
-              <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-background border px-3 py-1 font-mono text-[11px] text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Model <code className="rounded bg-muted px-1 py-0.5 text-[11px]">gemini 1.5 flash</code> (paling cepat)
+              <p className="mx-auto mt-1 max-w-[42ch] text-xs leading-relaxed text-muted-foreground">
+                Buat dari commit, atau tambah catatan untuk konteks lebih lengkap.
               </p>
             </div>
           )}
@@ -412,7 +390,7 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium leading-none">{generateLabel}</p>
-                <p className="mt-1 font-mono text-xs text-muted-foreground">Gemini sedang menganalisis diff • mohon tunggu</p>
+                <p className="mt-1 font-mono text-xs text-muted-foreground">Mohon tunggu</p>
               </div>
               <Badge variant="secondary" className="rounded-full font-mono text-xs tabular-nums">
                 {elapsed.toFixed(1)}s
@@ -468,30 +446,25 @@ export function GenerateView({ gitLogs, commits, detailed, onRefreshCommits, onG
 
               {autoSavedAt && (
                 <p className="text-right font-mono text-[11px] text-muted-foreground flex items-center justify-end gap-1">
-                  <Clock className="h-3 w-3" /> autosaved {new Date(autoSavedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                  <Clock className="h-3 w-3" /> tersimpan {new Date(autoSavedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               )}
 
               <Separator />
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs leading-relaxed text-muted-foreground max-w-[36ch]">
-                  Pastikan tiap field sudah <span className="font-medium text-foreground">≥100 karakter</span> sebelum disimpan. File Excel akan ter-download otomatis.
-                </p>
-                <div className="flex items-center gap-2">
-                  {manualMode && (
-                    <Button type="button" variant="ghost" onClick={resetDraft}>
-                      Batal
-                    </Button>
-                  )}
-                  <Button type="button" variant="outline" disabled={regenerating || generating} onClick={handleRegenerate}>
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    Generate ulang
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {manualMode && (
+                  <Button type="button" variant="ghost" onClick={resetDraft}>
+                    Batal
                   </Button>
-                  <Button type="submit" disabled={saving} className="shadow-sm">
-                    {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                    Simpan & Download Excel
-                  </Button>
-                </div>
+                )}
+                <Button type="button" variant="outline" disabled={regenerating || generating} onClick={handleRegenerate}>
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Ulangi
+                </Button>
+                <Button type="submit" disabled={saving} className="shadow-sm">
+                  {saving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Simpan
+                </Button>
               </div>
             </form>
           )}

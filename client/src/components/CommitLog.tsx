@@ -163,7 +163,7 @@ export function CommitLog({ gitLogs, commits }: { gitLogs: string; commits: Comm
         </div>
         <p className="text-sm font-medium text-muted-foreground">Tidak ada commit hari ini</p>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground/80 mx-auto max-w-[28ch]">
-          Mode gabungan tetap bisa pakai catatan manual saja — klik Merge & Generate ✨
+          Tidak ada commit. Gunakan tambah catatan.
         </p>
       </div>
     );

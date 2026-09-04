@@ -5,7 +5,6 @@ import { useToast } from "../context/ToastContext";
 import { EditEntryModal } from "../components/EditEntryModal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MonthNavigator } from "@/components/MonthNavigator";
@@ -13,7 +12,7 @@ import { CalendarGrid } from "@/components/CalendarGrid";
 import { Heatmap } from "@/components/Heatmap";
 import { RecapCard } from "@/components/RecapCard";
 import { getEntriesByDate, getMonthMatrix, parseTanggal, toKey } from "@/lib/calendar";
-import { History, Calendar, FileText, ChevronRight, SearchX, Loader2, BookOpen, LayoutList, Grid3X3 } from "lucide-react";
+import { History, Calendar, FileText, ChevronRight, SearchX, Loader2, LayoutList, Grid3X3 } from "lucide-react";
 
 function truncate(text: string, n: number) {
   if (!text) return "";
@@ -47,7 +46,7 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
   async function handleSave(rowNumber: number, draftFields: { aktivitas: string; pembelajaran: string; kendala: string }) {
     try {
       await api(`/api/entries/${rowNumber}`, { method: "PUT", body: JSON.stringify(draftFields) });
-      showToast("Perubahan tersimpan ✔", "success");
+      showToast("Tersimpan", "success");
       setEditing(null);
       load();
     } catch (err) {
@@ -94,13 +93,12 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
   const handleSelectEmpty = (date: Date) => {
     const key = toKey(date);
     const display = date.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
-    // check if weekend
     const day = date.getDay();
     if (day === 0 || day === 6) {
-      showToast(`${display} adalah weekend — tidak perlu isi logbook.`, "info");
+      showToast(`${display} weekend`, "info");
       return;
     }
-    showToast(`Belum ada entri untuk ${display} (${key}). Buka tab Generate untuk buat draft tanggal ini.`, "info");
+    showToast(`Belum ada entri ${display} (${key})`, "info");
   };
 
   // calendar mode year for heatmap
@@ -117,9 +115,9 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
                 <History className="h-[18px] w-[18px] text-muted-foreground" />
               </div>
               <div>
-                <CardTitle className="text-sm">Riwayat Logbook</CardTitle>
+                <CardTitle className="text-sm">Riwayat</CardTitle>
                 <CardDescription className="text-xs mt-1">
-                  {entries === null ? "Memuat…" : `${entries.length} entri tersimpan • ${viewMode === "calendar" ? "mode kalender" : "mode list"}`}
+                  {entries === null ? "Memuat…" : `${entries.length} entri`}
                 </CardDescription>
               </div>
             </div>
@@ -184,17 +182,14 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
                 <SearchX className="h-7 w-7 text-muted-foreground" />
               </div>
               <p className="text-sm font-medium">Belum ada entri</p>
-              <p className="mt-1 max-w-[36ch] text-sm leading-relaxed text-muted-foreground">Belum ada entri. Generate satu dari tab Generate — draft akan muncul di sini setelah disimpan.</p>
-              <Button variant="outline" size="sm" className="mt-4 rounded-full">
-                <BookOpen className="h-3.5 w-3.5" /> Mulai generate
-              </Button>
+              <p className="mt-1 max-w-[36ch] text-sm leading-relaxed text-muted-foreground">Buat draft pertama di tab Generate.</p>
             </div>
           ) : viewMode === "calendar" ? (
             <div className="space-y-6 p-4 sm:p-5">
               <CalendarGrid currentMonth={currentMonth} entries={entries} entriesByDate={entriesByDate} weeks={weeks} onSelectEntry={setEditing} onSelectEmpty={handleSelectEmpty} />
 
               {/* monthly filtered list */}
-              <div>
+              {/* <div>
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="flex items-center gap-2 text-sm font-semibold">
                     <FileText className="h-4 w-4 text-muted-foreground" />
@@ -213,8 +208,8 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
                     <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-background border">
                       <Calendar className="h-5 w-5 text-muted-foreground" />
                     </div>
-                    <p className="mt-3 text-sm font-medium">Kosong bulan ini</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Coba pindah bulan atau generate entri baru.</p>
+                    <p className="mt-3 text-sm font-medium">Kosong</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Tidak ada entri bulan ini.</p>
                   </div>
                 ) : (
                   <div className="overflow-hidden rounded-xl border divide-y bg-card">
@@ -250,7 +245,7 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
                     ))}
                   </div>
                 )}
-              </div>
+              </div> */}
 
               <Heatmap entries={entries} year={heatmapYear} />
             </div>

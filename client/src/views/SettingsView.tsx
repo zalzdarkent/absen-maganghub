@@ -20,9 +20,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Settings2, FolderGit2, Bell, CheckCircle2, AlertTriangle, Shield, ExternalLink, Loader2 } from 'lucide-react';
+import { FolderGit2, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 
 export function SettingsView({ onSaved }: { onSaved: () => void }) {
   const { showToast } = useToast();
@@ -73,15 +72,15 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
     const permission = await requestDesktopNotificationPermission();
     setNotificationPermission(permission);
     if (permission === 'granted') {
-      notifyDesktop('Notifikasi MagangHub aktif', {
-        body: 'Nanti draft selesai dan reminder jam 15.40 bisa muncul di desktop.',
+      notifyDesktop('Notifikasi aktif', {
+        body: 'Reminder jam 15.40 akan muncul di desktop.',
         tag: 'notification-test',
       });
-      showToast('Notifikasi desktop aktif ✔', 'success');
+      showToast('Notifikasi aktif', 'success');
     } else if (permission === 'unsupported') {
-      showToast('Browser ini belum mendukung desktop notification.', 'warning');
+      showToast('Browser belum mendukung notifikasi.', 'warning');
     } else {
-      showToast('Izin notifikasi belum diberikan. Kamu masih tetap dapat toaster di aplikasi.', 'warning');
+      showToast('Izin notifikasi belum diberikan.', 'warning');
     }
   }
 
@@ -90,7 +89,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
     try {
       await subscribePush();
       setPushActive(true);
-      showToast('Push aktif ✔ Tutup tab pun reminder 15.40 tetap masuk.', 'success');
+      showToast('Push aktif', 'success');
       try {
         await sendTestPush();
       } catch {
@@ -108,7 +107,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
     try {
       await unsubscribePush();
       setPushActive(false);
-      showToast('Push dimatikan. Reminder lokal 15.40 tetap jalan saat dashboard terbuka.', 'info');
+      showToast('Push dimatikan', 'info');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal mematikan push', 'error');
     } finally {
@@ -120,7 +119,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
     setPushLoading(true);
     try {
       const result = await sendTestPush();
-      showToast(`Test push terkirim ke ${result.sent}/${result.total} device ✔`, 'success');
+      showToast(`Test terkirim ke ${result.sent}/${result.total} device`, 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal kirim test push', 'error');
     } finally {
@@ -132,7 +131,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
     setSaving(true);
     try {
       await api('/api/settings', { method: 'POST', body: JSON.stringify({ repoPath: repoPath.trim() }) });
-      showToast('Repo GitHub tersimpan ✔', 'success');
+      showToast('Repo tersimpan', 'success');
       load();
       onSaved();
     } catch (err) {
@@ -165,12 +164,9 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
               <FolderGit2 className="h-5 w-5 text-muted-foreground" />
             </div>
             <div>
-              <CardTitle className="text-base flex items-center gap-2">
-                Sumber Repository
-                <Badge variant="secondary" className="rounded-full font-mono text-[10px]">Git</Badge>
-              </CardTitle>
+              <CardTitle className="text-base">Repository</CardTitle>
               <CardDescription className="mt-1 text-xs leading-relaxed max-w-[60ch]">
-                Tentukan repo GitHub atau path lokal untuk sinkron commit & diff. Bisa berupa URL <span className="font-mono">https://github.com/...</span> atau path lokal seperti <span className="font-mono">/Users/nama/repo</span>.
+                URL GitHub atau path lokal untuk sinkron commit.
               </CardDescription>
             </div>
           </div>
@@ -205,28 +201,20 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
                   Simpan
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <ExternalLink className="h-3 w-3" /> Contoh: <code className="rounded bg-muted px-1 py-0.5 font-mono">https://github.com/username/repo.git</code>
+              <p className="text-xs text-muted-foreground">
+                Contoh: <code className="rounded bg-muted px-1 py-0.5 font-mono">https://github.com/username/repo.git</code>
               </p>
             </div>
 
             <div className="rounded-xl border bg-muted/20 p-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold">
-                    <Bell className="h-4 w-4 text-primary" /> Notifikasi Desktop & Reminder Harian
-                  </p>
+                  <p className="text-sm font-medium">Notifikasi</p>
                   <p className="max-w-[50ch] text-xs leading-relaxed text-muted-foreground">
-                    Reminder otomatis aktif jam <span className="font-medium text-foreground">15:40</span> selama dashboard terbuka. Notifikasi juga muncul saat draft selesai diracik Gemini.
+                    Reminder jam 15.40 saat dashboard terbuka.
                   </p>
                   <p className="flex items-center gap-1.5 pt-1 font-mono text-xs">
-                    Status izin:
-                    <Badge
-                      variant={notificationPermission === 'granted' ? 'success' : notificationPermission === 'denied' ? 'destructive' : 'secondary'}
-                      className="rounded-full font-mono text-[11px]"
-                    >
-                      {notificationPermission}
-                    </Badge>
+                    {notificationPermission}
                     {notificationPermission === 'granted' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
                   </p>
                 </div>
@@ -236,9 +224,9 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
                   disabled={!canUseDesktopNotifications() || notificationPermission === 'granted'}
                   onClick={handleEnableNotifications}
                   className="rounded-full"
+                  size="sm"
                 >
-                  <Bell className="h-4 w-4" />
-                  {notificationPermission === 'granted' ? 'Notifikasi aktif' : 'Aktifkan notifikasi'}
+                  {notificationPermission === 'granted' ? 'Aktif' : 'Aktifkan'}
                 </Button>
               </div>
             </div>
@@ -246,30 +234,21 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
             <div className="rounded-xl border bg-muted/20 p-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold">
-                    <Bell className="h-4 w-4 text-primary" /> Web Push — tetap bunyi walau tab ditutup
-                  </p>
+                  <p className="text-sm font-medium">Web Push</p>
                   <p className="max-w-[50ch] text-xs leading-relaxed text-muted-foreground">
-                    Ditenagai service worker + Vercel Cron jam <span className="font-medium text-foreground">15:40 WIB</span>. Cocok untuk deploy Vercel.
-                    {!pushSupported && ' Browser ini belum mendukung push (butuh HTTPS + Chrome/Edge/Firefox).'}
-                    {pushServerOk === false && ' Server belum dikonfigurasi VAPID.'}
+                    Tetap aktif walau tab tertutup (butuh HTTPS).
+                    {!pushSupported && ' Browser belum mendukung.'}
+                    {pushServerOk === false && ' Server belum dikonfigurasi.'}
                   </p>
-                  <p className="flex items-center gap-1.5 pt-1 font-mono text-xs">
-                    Status push:
-                    <Badge
-                      variant={pushActive ? 'success' : 'secondary'}
-                      className="rounded-full font-mono text-[11px]"
-                    >
-                      {pushActive ? 'aktif' : 'nonaktif'}
-                    </Badge>
-                    {pushActive && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />}
+                  <p className="font-mono text-xs">
+                    {pushActive ? 'Aktif' : 'Nonaktif'}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {pushActive && (
-                    <Button type="button" variant="outline" disabled={pushLoading} onClick={handleTestPush} className="rounded-full">
-                      {pushLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                      Test push
+                    <Button type="button" variant="outline" disabled={pushLoading} onClick={handleTestPush} className="rounded-full" size="sm">
+                      {pushLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Test
                     </Button>
                   )}
                   <Button
@@ -278,22 +257,11 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
                     disabled={!pushSupported || pushLoading || pushServerOk === false}
                     onClick={pushActive ? handleDisablePush : handleEnablePush}
                     className="rounded-full"
+                    size="sm"
                   >
-                    {pushLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                    {pushActive ? 'Matikan push' : 'Aktifkan push'}
+                    {pushActive ? 'Matikan' : 'Aktifkan'}
                   </Button>
                 </div>
-              </div>
-            </div>
-
-            <Separator />
-            <div className="flex items-center justify-between">
-              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Shield className="h-3.5 w-3.5" /> Pengaturan disimpan lokal & aman. Tidak dikirim kemana pun.
-              </p>
-              <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                Auto-sync Excel
               </div>
             </div>
           </form>
@@ -302,22 +270,12 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
 
       <Card className="border-dashed">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Settings2 className="h-4 w-4 text-muted-foreground" /> Tentang Dashboard
-          </CardTitle>
+          <CardTitle className="text-sm">Tentang</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-xs leading-relaxed text-muted-foreground">
+        <CardContent className="text-xs leading-relaxed text-muted-foreground">
           <p>
-            Dashboard ini berjalan <span className="font-medium text-foreground">local-first</span> — data logbook disimpan di file Excel{' '}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono">Logbook_MagangHub.xlsx</code> dan cache git di folder <code className="rounded bg-muted px-1 py-0.5 font-mono">repo-cache/</code>. Tidak ada data yang keluar tanpa izinmu.
+            Data disimpan lokal di <code className="rounded bg-muted px-1 py-0.5 font-mono">Logbook_MagangHub.xlsx</code>.
           </p>
-          <Separator />
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" className="rounded-full font-mono">Express + ExcelJS</Badge>
-            <Badge variant="outline" className="rounded-full font-mono">React 19 + shadcn/ui</Badge>
-            <Badge variant="outline" className="rounded-full font-mono">Tailwind CSS</Badge>
-            <Badge variant="outline" className="rounded-full font-mono">Gemini 2.5 Flash</Badge>
-          </div>
         </CardContent>
       </Card>
     </div>

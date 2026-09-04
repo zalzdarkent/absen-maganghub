@@ -57,9 +57,6 @@ function AppHeader({
                 LOGBOOK
               </span>
             </div>
-            <div className="font-mono text-[11px] leading-none text-muted-foreground hidden md:block">
-              Dashboard harian • Gemini 2.5 Flash
-            </div>
           </div>
           <div className="sm:hidden font-mono text-sm font-semibold flex items-center gap-1.5">
             <Terminal className="h-3.5 w-3.5 text-primary" />
@@ -177,18 +174,13 @@ export default function App() {
             <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
               {tab === 'generate' && 'Buat Draft Logbook Harian'}
               {tab === 'history' && 'Riwayat Logbook'}
-              {tab === 'settings' && 'Pengaturan Workspace'}
+              {tab === 'settings' && 'Pengaturan'}
             </h1>
             <p className="mt-1 max-w-[62ch] text-sm leading-relaxed text-muted-foreground">
-              {tab === 'generate'}
-              {tab === 'history' && 'Lihat, edit, dan kelola entri yang sudah tersimpan di Excel. Klik entri untuk mengubah atau menghapus.'}
-              {tab === 'settings' && 'Atur sumber repo GitHub dan preferensi notifikasi desktop untuk reminder harian.'}
+              {tab === 'generate' && 'Susun logbook harian dari commit Git.'}
+              {tab === 'history' && 'Kelola riwayat logbook tersimpan.'}
+              {tab === 'settings' && 'Atur repo dan notifikasi.'}
             </p>
-          </div>
-          <div className="hidden items-center gap-2 md:flex">
-            <span className="font-mono text-[11px] tracking-widest text-muted-foreground/60">MAGANGHUB • 2026</span>
-            <span className="h-3 w-px bg-border" />
-            <span className="font-mono text-[11px] text-muted-foreground">Gemini • ExcelJS • Git</span>
           </div>
         </div>
 
@@ -218,12 +210,9 @@ export default function App() {
           />
         )}
 
-        <footer className="mt-10 flex flex-col items-center gap-2 border-t pt-6 text-center md:flex-row md:justify-between md:text-left">
+        <footer className="mt-10 flex justify-center border-t pt-6 text-center md:justify-start">
           <p className="font-mono text-[11px] text-muted-foreground">
             © {new Date().getFullYear()} Alif Fadillah Ummar.
-          </p>
-          <p className="font-mono text-[11px] text-muted-foreground/70">
-            Local-first • Excel otomatis • Notifikasi jam 15.40
           </p>
         </footer>
       </div>

@@ -133,6 +133,7 @@ export default function App() {
   const [detailed, setDetailed] = useState('');
   const [statusKind, setStatusKind] = useState<StatusKind>('idle');
   const [statusText, setStatusText] = useState('memeriksa…');
+  const [statusLoading, setStatusLoading] = useState(true);
   const [historyReloadKey, setHistoryReloadKey] = useState(0);
   const [autoDraftSignal, setAutoDraftSignal] = useState(0);
   const [repositories, setRepositories] = useState<Repository[]>([]);
@@ -195,6 +196,7 @@ export default function App() {
   }, []);
 
   const loadStatus = useCallback(async () => {
+    setStatusLoading(true);
     try {
       const q = selectedRepoIds.length ? `?repoIds=${encodeURIComponent(selectedRepoIds.join(','))}` : '';
       const data = await api<StatusResponse>(`/api/status${q}`);
@@ -216,6 +218,8 @@ export default function App() {
       setStatusText('repo bermasalah');
       const message = err instanceof Error ? err.message : 'Gagal memuat status';
       showToast(message, 'error');
+    } finally {
+      setStatusLoading(false);
     }
   }, [showToast, selectedRepoIds]);
 
@@ -257,6 +261,7 @@ export default function App() {
                 gitLogs={gitLogs}
                 commits={commits}
                 detailed={detailed}
+                isLoadingCommits={statusLoading}
                 autoDraftSignal={autoDraftSignal}
                 repositories={repositories}
                 selectedRepoIds={selectedRepoIds}

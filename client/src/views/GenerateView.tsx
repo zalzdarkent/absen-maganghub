@@ -10,16 +10,18 @@ import { ManualMergeModal } from '../components/ManualMergeModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { GitCommit, Sparkles, RefreshCw, Save, RotateCcw, Clock, FileSpreadsheet, Wand2, AlertCircle, Check } from 'lucide-react';
+import { GitCommit, Sparkles, RefreshCw, Save, RotateCcw, Clock, FileSpreadsheet, Wand2, AlertCircle, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
   gitLogs: string;
   commits: Commit[];
   detailed: string;
+  isLoadingCommits?: boolean;
   autoDraftSignal?: number;
   repositories?: Repository[];
   selectedRepoIds?: string[];
@@ -58,7 +60,7 @@ function ProgressBar({ len }: { len: number }) {
   );
 }
 
-export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, repositories, selectedRepoIds, onSelectedRepoIdsChange, onRefreshCommits, onGeneratedGitLogs, onSaved }: Props) {
+export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, autoDraftSignal, repositories, selectedRepoIds, onSelectedRepoIdsChange, onRefreshCommits, onGeneratedGitLogs, onSaved }: Props) {
   const { showToast } = useToast();
   const [draft, setDraft] = useState<DraftFields | null>(null);
   const repos = repositories || [];
@@ -391,18 +393,34 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, repo
               </div>
               <div>
                 <CardTitle className="text-sm font-semibold leading-none">Commit hari ini</CardTitle>
-                <CardDescription className="mt-1 font-mono text-[11px]">{commitCount} commit • sinkron Git</CardDescription>
+                <CardDescription className="mt-1 font-mono text-[11px]">
+                  {isLoadingCommits ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> memuat…
+                    </span>
+                  ) : (
+                    <>{commitCount} commit • sinkron Git</>
+                  )}
+                </CardDescription>
               </div>
             </div>
-            <Button variant="outline" size="sm" className="h-7 sm:h-7 min-h-[44px] sm:min-h-0 rounded-full px-3 text-xs" onClick={onRefreshCommits} aria-label="Refresh commit">
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-              Refresh
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 sm:h-7 min-h-[44px] sm:min-h-0 rounded-full px-3 text-xs"
+              onClick={onRefreshCommits}
+              disabled={Boolean(isLoadingCommits)}
+              aria-label="Refresh commit"
+              aria-busy={Boolean(isLoadingCommits)}
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', isLoadingCommits && 'animate-spin')} aria-hidden="true" />
+              {isLoadingCommits ? 'Memuat...' : 'Refresh'}
             </Button>
           </div>
         </CardHeader>
         <Separator />
         {repos.length > 1 && (
-          <div className="border-b bg-muted/20 px-4 py-2.5">
+          <div className={cn('border-b bg-muted/20 px-4 py-2.5 transition-opacity', isLoadingCommits && 'opacity-60')}>
             <div className="flex flex-wrap gap-1.5">
               {repos.map((r) => {
                 const active = selectedIds.includes(r.id);
@@ -411,14 +429,16 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, repo
                     key={r.id}
                     type="button"
                     onClick={() => toggleRepo(r.id)}
+                    disabled={Boolean(isLoadingCommits)}
                     aria-pressed={active}
                     aria-label={`${active ? 'Hapus' : 'Pilih'} repo ${r.label}`}
+                    aria-busy={Boolean(isLoadingCommits && active)}
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors min-h-[44px] sm:min-h-[32px]',
+                      'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors min-h-[44px] sm:min-h-[32px] disabled:opacity-60 disabled:cursor-wait',
                       active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'
                     )}
                   >
-                    {active && <Check className="h-3 w-3" aria-hidden="true" />} {r.label}
+                    {isLoadingCommits && active ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : active ? <Check className="h-3 w-3" aria-hidden="true" /> : null} {r.label}
                   </button>
                 );
               })}
@@ -427,8 +447,28 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, repo
           </div>
         )}
         <CardContent className="p-0">
-          <div className="max-h-[480px] overflow-y-auto" aria-live="polite">
-            <CommitLog gitLogs={gitLogs} commits={commits} />
+          <div className="max-h-[480px] overflow-y-auto relative" aria-live="polite" aria-busy={Boolean(isLoadingCommits)}>
+            {isLoadingCommits ? (
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
+                  <span className="font-mono">Sinkron commit...</span>
+                </div>
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex gap-3 animate-pulse">
+                    <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-3 w-3/4" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-2 w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <CommitLog gitLogs={gitLogs} commits={commits} />
+            )}
+            {isLoadingCommits && <div className="pointer-events-none absolute inset-0 bg-background/40 backdrop-blur-[1px]" aria-hidden="true" />}
           </div>
         </CardContent>
       </Card>

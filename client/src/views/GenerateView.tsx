@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import type { Commit, GenerateCombinedResponse, GenerateManualResponse, GenerateResponse } from '../types';
+import type { Commit, GenerateCombinedResponse, GenerateManualResponse, GenerateResponse, Repository } from '../types';
 import type { GenerateMode } from '../types';
 import { api, downloadExcel } from '../lib/api';
 import { notifyDesktop } from '../lib/notifications';
@@ -13,13 +13,17 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { GitCommit, Sparkles, RefreshCw, Save, RotateCcw, Clock, FileSpreadsheet, Wand2, AlertCircle } from 'lucide-react';
+import { GitCommit, Sparkles, RefreshCw, Save, RotateCcw, Clock, FileSpreadsheet, Wand2, AlertCircle, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Props {
   gitLogs: string;
   commits: Commit[];
   detailed: string;
   autoDraftSignal?: number;
+  repositories?: Repository[];
+  selectedRepoIds?: string[];
+  onSelectedRepoIdsChange?: (ids: string[]) => void;
   onRefreshCommits: () => void;
   onGeneratedGitLogs: (gitLogs: string, detailed: string, commits?: Commit[]) => void;
   onSaved: () => void;
@@ -54,9 +58,17 @@ function ProgressBar({ len }: { len: number }) {
   );
 }
 
-export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRefreshCommits, onGeneratedGitLogs, onSaved }: Props) {
+export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, repositories, selectedRepoIds, onSelectedRepoIdsChange, onRefreshCommits, onGeneratedGitLogs, onSaved }: Props) {
   const { showToast } = useToast();
   const [draft, setDraft] = useState<DraftFields | null>(null);
+  const repos = repositories || [];
+  const selectedIds = selectedRepoIds || [];
+  function toggleRepo(id: string) {
+    if (!onSelectedRepoIdsChange) return;
+    const next = selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id].slice(0, 5);
+    if (next.length === 0) onSelectedRepoIdsChange([id]);
+    else onSelectedRepoIdsChange(next);
+  }
   const [manualMode, setManualMode] = useState(false);
   const [lastMode, setLastMode] = useState<GenerateMode>('commit');
   const [lastCombinedNotes, setLastCombinedNotes] = useState('');
@@ -135,14 +147,15 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRe
     setAutoSavedAt(savedAt);
   }, [draft, manualMode, lastMode, lastCombinedNotes, lastManualNotes]);
 
-  // Auto-draft 16.00: ambil draft yang sudah di-generate cron
+  // Auto-draft 16.00: ambil draft yang sudah di-generate cron (support multi-repo)
   useEffect(() => {
     let cancelled = false;
     async function fetchAutoDraft(showToastOnSuccess = false) {
       if (generating) return;
       if (draft && !showToastOnSuccess) return;
       try {
-        const res = await fetch('/api/auto-draft', { headers: { Accept: 'application/json' } });
+        const q = selectedIds.length ? `?repoIds=${encodeURIComponent(selectedIds.join(','))}` : '';
+        const res = await fetch(`/api/auto-draft${q}`, { headers: { Accept: 'application/json' } });
         if (res.status === 404) return; // belum ada draft - normal, jangan throw
         if (!res.ok) return;
         const data = (await res.json().catch(() => null)) as {
@@ -177,13 +190,13 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRe
       fetchAutoDraft(true);
     }
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoDraftSignal]);
+  }, [autoDraftSignal, selectedIds.join(',')]);
 
   async function runGenerate() {
     startTimer('Menyusun draft...');
     try {
-      const data = await api<GenerateResponse>('/api/generate', { method: 'POST' });
+      const body = selectedIds.length ? JSON.stringify({ repoIds: selectedIds }) : undefined;
+      const data = await api<GenerateResponse>('/api/generate', body ? { method: 'POST', body } : { method: 'POST' });
       onGeneratedGitLogs(data.gitLogs || '', data.diffSection || '', data.commits);
       setLastMode('commit');
       setManualMode(false);
@@ -211,9 +224,11 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRe
     }
     startTimer('Menyusun draft...');
     try {
+      const payload: Record<string, unknown> = { manualNotes: finalNotes, gitLogs, diffSection: detailed };
+      if (selectedIds.length) payload.repoIds = selectedIds;
       const data = await api<GenerateCombinedResponse>('/api/generate-combined', {
         method: 'POST',
-        body: JSON.stringify({ manualNotes: finalNotes, gitLogs, diffSection: detailed }),
+        body: JSON.stringify(payload),
       });
       setLastMode('combined');
       if (data.gitLogs !== undefined) {
@@ -253,9 +268,11 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRe
     setModalSubmitting(true);
     startTimer('Menyusun draft...');
     try {
+      const payload: Record<string, unknown> = { manualNotes: notes, gitLogs: gitLogs || '', diffSection: detailed || '' };
+      if (selectedIds.length) payload.repoIds = selectedIds;
       const data = await api<GenerateCombinedResponse>('/api/generate-combined', {
         method: 'POST',
-        body: JSON.stringify({ manualNotes: notes, gitLogs: gitLogs || '', diffSection: detailed || '' }),
+        body: JSON.stringify(payload),
       });
       setLastMode('combined');
       setManualMode(false);
@@ -363,7 +380,7 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRe
   const commitCount = commits.length || String(gitLogs || '').trim().split('\n').filter(Boolean).length;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[410px_1fr] items-start">
+    <div className="grid gap-6 lg:grid-cols-[380px_1fr] xl:grid-cols-[410px_1fr] items-start w-full max-w-full overflow-hidden">
       {/* Commit Panel */}
       <Card className="overflow-hidden border shadow-sm">
         <CardHeader className="pb-3">
@@ -377,13 +394,38 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRe
                 <CardDescription className="mt-1 font-mono text-[11px]">{commitCount} commit • sinkron Git</CardDescription>
               </div>
             </div>
-            <Button variant="outline" size="sm" className="h-7 rounded-full px-3 text-xs" onClick={onRefreshCommits}>
-              <RefreshCw className="h-3.5 w-3.5" />
+            <Button variant="outline" size="sm" className="h-7 sm:h-7 min-h-[44px] sm:min-h-0 rounded-full px-3 text-xs" onClick={onRefreshCommits} aria-label="Refresh commit">
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
               Refresh
             </Button>
           </div>
         </CardHeader>
         <Separator />
+        {repos.length > 1 && (
+          <div className="border-b bg-muted/20 px-4 py-2.5">
+            <div className="flex flex-wrap gap-1.5">
+              {repos.map((r) => {
+                const active = selectedIds.includes(r.id);
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => toggleRepo(r.id)}
+                    aria-pressed={active}
+                    aria-label={`${active ? 'Hapus' : 'Pilih'} repo ${r.label}`}
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors min-h-[44px] sm:min-h-[32px]',
+                      active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card hover:bg-muted'
+                    )}
+                  >
+                    {active && <Check className="h-3 w-3" aria-hidden="true" />} {r.label}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedIds.length > 1 && <p className="mt-1.5 font-mono text-[11px] text-muted-foreground">Gabung {selectedIds.length} repo → 1 draft</p>}
+          </div>
+        )}
         <CardContent className="p-0">
           <div className="max-h-[480px] overflow-y-auto" aria-live="polite">
             <CommitLog gitLogs={gitLogs} commits={commits} />
@@ -406,12 +448,12 @@ export function GenerateView({ gitLogs, commits, detailed, autoDraftSignal, onRe
                 Tiga bagian: aktivitas, pembelajaran, kendala.
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2 self-start">
-              <Button variant="outline" size="sm" className="rounded-full" onClick={() => setManualModalOpen(true)}>
+            <div className="flex items-center gap-2 self-start flex-wrap">
+              <Button variant="outline" size="sm" className="rounded-full min-h-[44px] sm:min-h-0" onClick={() => setManualModalOpen(true)}>
                 Tambah catatan
               </Button>
-              <Button size="sm" className="rounded-full shadow-sm" disabled={generating} onClick={runGenerate}>
-                {generating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              <Button size="sm" className="rounded-full shadow-sm min-h-[44px] sm:min-h-0" disabled={generating} onClick={runGenerate} aria-label="Buat draft logbook">
+                {generating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />}
                 {generating ? 'Menyusun...' : 'Buat draft'}
               </Button>
             </div>

@@ -13,7 +13,6 @@ import {
     generateManualWithGemini,
     getCache,
     getTodayGitLogs,
-    getTodayCommitsWithDiff,
     getTodayGitLogsDetailed,
     getCommitDiff,
     parseTanggalForRecap,
@@ -21,7 +20,7 @@ import {
     saveCache,
     updateEntry,
 } from './lib/logbook.js';
-import { getEffectiveRepoPath, getSettingsForDisplay, saveSettings } from './lib/settings.js';
+import { getEffectiveRepoPath, getRepositories, getSettingsForDisplay, saveSettings } from './lib/settings.js';
 import {
     buildDraftReadyPayload,
     buildReminderPayload,
@@ -53,6 +52,71 @@ const FULL_TODAY_DIFF_OPTS = {
     maxTotalChars: 15000,
 };
 
+function parseRepoIds(req) {
+    const fromQuery = req.query.repoIds || req.query.repoId || req.query.repos;
+    const fromBody = req.body && (req.body.repoIds || req.body.repoId || req.body.repos);
+    const raw = fromQuery !== undefined ? fromQuery : fromBody;
+    if (raw === undefined || raw === null || raw === '') return null;
+    if (Array.isArray(raw)) return raw.map(s=>String(s).trim()).filter(Boolean).slice(0,5);
+    const str = String(raw).trim();
+    if (!str) return null;
+    return str.split(',').map(s=>String(s).trim()).filter(Boolean).slice(0,5);
+}
+
+async function getCombinedDetailed(repoIds) {
+    if (!repoIds || repoIds.length === 0) {
+        const singlePath = await getEffectiveRepoPath();
+        const result = await getTodayGitLogsDetailed(singlePath, FULL_TODAY_DIFF_OPTS);
+        return {
+            logs: result.logs,
+            detailed: result.detailed,
+            commits: (result.commits || []).map(c=>({ ...c, repoId: null, repoLabel: null })),
+            repoCount: 1,
+            repoIds: [],
+        };
+    }
+    const perRepoTotal = Math.max(3000, Math.floor(FULL_TODAY_DIFF_OPTS.maxTotalChars / repoIds.length));
+    const perRepoOpts = {
+        ...FULL_TODAY_DIFF_OPTS,
+        maxTotalChars: perRepoTotal,
+        maxCommits: Math.min(10, Math.max(2, Math.ceil(FULL_TODAY_DIFF_OPTS.maxCommits / repoIds.length * 1.2))),
+    };
+    const repos = await getRepositories();
+    const idToRepo = new Map(repos.map(r=>[r.id, r]));
+    const tasks = repoIds.map(async (id) => {
+        const repo = idToRepo.get(String(id).trim());
+        const repoPath = repo ? repo.url : await getEffectiveRepoPath(String(id).trim()).catch(()=>null);
+        const label = repo ? repo.label : String(id).trim();
+        if (!repoPath) return { id, label, logs: '', detailed: '', commits: [] };
+        try {
+            const r = await getTodayGitLogsDetailed(repoPath, perRepoOpts);
+            return { id, label, logs: r.logs || '', detailed: r.detailed || '', commits: (r.commits || []).map(c=>({ ...c, repoId: id, repoLabel: label })) };
+        } catch {
+            try {
+                const logs = await getTodayGitLogs(repoPath);
+                return { id, label, logs: logs || '', detailed: '', commits: [] };
+            } catch {
+                return { id, label, logs: '', detailed: '', commits: [] };
+            }
+        }
+    });
+    const results = await Promise.all(tasks);
+    const partsLogs = [];
+    const partsDetailed = [];
+    const allCommits = [];
+    for (const r of results) {
+        if (r.logs) {
+            partsLogs.push(`=== REPO: ${r.label} ===\n${r.logs}`);
+            allCommits.push(...r.commits);
+        }
+        if (r.detailed) partsDetailed.push(`=== REPO: ${r.label} ===\n${r.detailed}`);
+    }
+    const combinedLogs = partsLogs.join('\n\n');
+    let combinedDetailed = partsDetailed.join('\n\n---\n\n');
+    if (combinedDetailed.length > FULL_TODAY_DIFF_OPTS.maxTotalChars) combinedDetailed = combinedDetailed.slice(0, FULL_TODAY_DIFF_OPTS.maxTotalChars) + '\n... (truncated)';
+    return { logs: combinedLogs, detailed: combinedDetailed, commits: allCommits, repoCount: results.length, repoIds };
+}
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -63,31 +127,41 @@ function todayStrings() {
 }
 
 // --- Status: git log preview + whether today's logs are already generated ---
-// Sekarang juga kirim `commits` dengan diff per commit untuk UI (expandable) & akurasi Gemini
 app.get('/api/status', async (req, res) => {
     try {
-        const repoPath = await getEffectiveRepoPath();
-        const wantDiff = req.query.diff !== '0'; // default include diff, ?diff=0 untuk mode cepat
+        const repoIds = parseRepoIds(req);
+        const wantDiff = req.query.diff !== '0';
         let gitLogs = '';
         let commits = [];
         let detailed = '';
         try {
-            if (wantDiff) {
+            if (repoIds && repoIds.length > 0) {
+                const combined = await getCombinedDetailed(repoIds);
+                gitLogs = combined.logs;
+                detailed = combined.detailed;
+                commits = combined.commits;
+            } else if (wantDiff) {
+                const repoPath = await getEffectiveRepoPath();
                 const result = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
                 gitLogs = result.logs;
                 detailed = result.detailed;
                 commits = result.commits;
             } else {
+                const repoPath = await getEffectiveRepoPath();
                 gitLogs = await getTodayGitLogs(repoPath);
             }
         } catch (e) {
-            // fallback ke log sederhana jika diff gagal (rate limit / token)
-            gitLogs = await getTodayGitLogs(repoPath);
+            try {
+                const fallbackPath = await getEffectiveRepoPath(repoIds && repoIds[0] ? repoIds[0] : undefined);
+                gitLogs = await getTodayGitLogs(fallbackPath);
+            } catch {
+                gitLogs = '';
+            }
         }
         const cache = await getCache();
         const { todayDate } = todayStrings();
-        const alreadyGenerated = cache.lastDate === todayDate && cache.lastLogs === gitLogs;
-        res.json({ gitLogs, commits, detailed, hasCommitsToday: Boolean(gitLogs), alreadyGenerated, cache });
+        const alreadyGenerated = !repoIds && cache.lastDate === todayDate && cache.lastLogs === gitLogs;
+        res.json({ gitLogs, commits, detailed, hasCommitsToday: Boolean(gitLogs), alreadyGenerated, cache, repoIds: repoIds || [] });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -98,7 +172,8 @@ app.get('/api/commits/:sha/diff', async (req, res) => {
     try {
         const sha = String(req.params.sha || '').trim();
         if (!sha || !/^[0-9a-f]{5,40}$/i.test(sha)) return res.status(400).json({ error: 'SHA tidak valid' });
-        const repoPath = await getEffectiveRepoPath();
+        const repoId = String(req.query.repoId || req.query.repoIds || '').split(',')[0]?.trim() || undefined;
+        const repoPath = await getEffectiveRepoPath(repoId);
         const diff = await getCommitDiff(repoPath, sha, { maxChars: 50000 });
         res.json(diff);
     } catch (error) {
@@ -110,29 +185,39 @@ app.get('/api/commits/:sha/diff', async (req, res) => {
 app.post('/api/generate', async (req, res) => {
     try {
         const t0 = Date.now();
-        const repoPath = await getEffectiveRepoPath();
+        const repoIds = parseRepoIds(req);
         let gitLogs = '';
         let diffSection = '';
         let commits = [];
         try {
-            const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
-            gitLogs = detailed.logs;
-            diffSection = detailed.detailed;
-            commits = detailed.commits || [];
+            if (repoIds && repoIds.length > 0) {
+                const combined = await getCombinedDetailed(repoIds);
+                gitLogs = combined.logs;
+                diffSection = combined.detailed;
+                commits = combined.commits || [];
+            } else {
+                const repoPath = await getEffectiveRepoPath();
+                const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
+                gitLogs = detailed.logs;
+                diffSection = detailed.detailed;
+                commits = detailed.commits || [];
+            }
         } catch (e) {
             console.warn('[generate] getTodayGitLogsDetailed gagal, fallback:', e.message);
-            gitLogs = await getTodayGitLogs(repoPath);
+            try {
+                const fallbackPath = await getEffectiveRepoPath(repoIds && repoIds[0] ? repoIds[0] : undefined);
+                gitLogs = await getTodayGitLogs(fallbackPath);
+            } catch { gitLogs = ''; }
         }
         if (!gitLogs) {
             return res.status(400).json({ error: 'Belum ada commit Git hari ini.' });
         }
         const gitMs = Date.now() - t0;
-        console.log(`[generate] git fetch done ${gitMs}ms, commits=${commits.length} diffLen=${String(diffSection).length}`);
+        console.log(`[generate] git fetch done ${gitMs}ms, commits=${commits.length} diffLen=${String(diffSection).length} repos=${repoIds ? repoIds.join(',') : 'default'}`);
         const g0 = Date.now();
         const draft = await generateWithGemini(gitLogs, diffSection);
         console.log(`[generate] gemini done ${Date.now() - g0}ms total ${Date.now()-t0}ms`);
-        // Reuse commits yang sudah di-fetch, jangan fetch lagi (hemat 2-4 detik)
-        res.json({ draft, gitLogs, diffSection, commits });
+        res.json({ draft, gitLogs, diffSection, commits, repoIds: repoIds || [] });
     } catch (error) {
         console.error('[generate] error:', error.message);
         res.status(500).json({ error: error.message });
@@ -153,39 +238,54 @@ app.post('/api/generate-manual', async (req, res) => {
     }
 });
 
-// --- Generate a draft by COMBINING commit logs + manual notes (now diff-aware) ---
+// --- Generate a draft by COMBINING commit logs + manual notes (now diff-aware, multi-repo) ---
 app.post('/api/generate-combined', async (req, res) => {
     try {
         const t0 = Date.now();
         const manualNotes = String(req.body.manualNotes || req.body.description || '').trim();
         const gitLogsOverride = typeof req.body.gitLogs === 'string' ? req.body.gitLogs.trim() : null;
         const diffOverride = typeof req.body.diffSection === 'string' ? req.body.diffSection : null;
+        const repoIds = parseRepoIds(req);
 
         if (!manualNotes) {
             return res.status(400).json({ error: 'Catatan manual wajib diisi untuk mode gabungan.' });
         }
 
-        const repoPath = await getEffectiveRepoPath();
         let gitLogs = gitLogsOverride;
         let diffSection = diffOverride;
-        // Hemat git fetch: jika client sudah kirim gitLogs+diff, jangan fetch lagi
-        // Hanya fetch jika keduanya kosong, atau diff kosong (fallback)
         if (gitLogs === null || gitLogs === undefined) {
             try {
-                const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
-                gitLogs = detailed.logs;
-                diffSection = diffSection || detailed.detailed;
-                console.log(`[generate-combined] fetched fresh git ${Date.now()-t0}ms (no override)`);
+                if (repoIds && repoIds.length > 0) {
+                    const combined = await getCombinedDetailed(repoIds);
+                    gitLogs = combined.logs;
+                    diffSection = diffSection || combined.detailed;
+                    console.log(`[generate-combined] fetched combined ${repoIds.join(',')} ${Date.now()-t0}ms`);
+                } else {
+                    const repoPath = await getEffectiveRepoPath();
+                    const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
+                    gitLogs = detailed.logs;
+                    diffSection = diffSection || detailed.detailed;
+                    console.log(`[generate-combined] fetched fresh git ${Date.now()-t0}ms (no override)`);
+                }
             } catch (e) {
                 console.warn('[generate-combined] detailed fetch gagal:', e.message);
-                gitLogs = await getTodayGitLogs(repoPath);
+                try {
+                    const fallbackPath = await getEffectiveRepoPath(repoIds && repoIds[0] ? repoIds[0] : undefined);
+                    gitLogs = await getTodayGitLogs(fallbackPath);
+                } catch { gitLogs = ''; }
             }
         } else if (!diffSection) {
-            // Client mengirim gitLogs tapi diff kosong -> fetch sekali saja, jangan dua kali
             try {
-                const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
-                diffSection = detailed.detailed;
-                console.log(`[generate-combined] fetched diff only ${Date.now()-t0}ms`);
+                if (repoIds && repoIds.length > 0) {
+                    const combined = await getCombinedDetailed(repoIds);
+                    diffSection = combined.detailed;
+                    console.log(`[generate-combined] fetched diff combined ${Date.now()-t0}ms`);
+                } else {
+                    const repoPath = await getEffectiveRepoPath();
+                    const detailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
+                    diffSection = detailed.detailed;
+                    console.log(`[generate-combined] fetched diff only ${Date.now()-t0}ms`);
+                }
             } catch {
                 diffSection = '';
             }
@@ -194,8 +294,8 @@ app.post('/api/generate-combined', async (req, res) => {
         }
 
         const draft = await generateCombinedWithGemini(gitLogs || '', manualNotes, diffSection || '');
-        console.log(`[generate-combined] gemini done total ${Date.now()-t0}ms`);
-        res.json({ draft, gitLogs: gitLogs || '', diffSection: diffSection || '' });
+        console.log(`[generate-combined] gemini done total ${Date.now()-t0}ms repos=${repoIds ? repoIds.join(',') : 'default'}`);
+        res.json({ draft, gitLogs: gitLogs || '', diffSection: diffSection || '', repoIds: repoIds || [] });
     } catch (error) {
         console.error('[generate-combined] error:', error.message);
         res.status(500).json({ error: error.message });
@@ -418,6 +518,12 @@ app.get('/api/auto-draft', async (req, res) => {
         if (!data || !data.draft || !data.dayKey) return res.status(404).json({ error: 'Belum ada draft otomatis' });
         const today = todayKeyWIB();
         if (data.dayKey !== today) return res.status(404).json({ error: 'Draft kadaluarsa' });
+        const repoIds = parseRepoIds(req);
+        if (repoIds && repoIds.length > 0 && data.repoIds) {
+            const stored = Array.isArray(data.repoIds) ? data.repoIds : [];
+            const overlap = repoIds.some(id=> stored.includes(String(id)));
+            if (!overlap && stored.length > 0) return res.status(404).json({ error: 'Draft untuk repo lain' });
+        }
         res.json(data);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -435,22 +541,33 @@ app.delete('/api/auto-draft', async (req, res) => {
 
 app.post('/api/auto-draft/generate', async (req, res) => {
     try {
-        const repoPath = await getEffectiveRepoPath();
+        const repoIds = parseRepoIds(req);
         let gitLogs = '';
         let detailed = '';
         let commits = [];
         try {
-            const result = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
-            gitLogs = result.logs;
-            detailed = result.detailed;
-            commits = result.commits || [];
+            if (repoIds && repoIds.length > 0) {
+                const combined = await getCombinedDetailed(repoIds);
+                gitLogs = combined.logs;
+                detailed = combined.detailed;
+                commits = combined.commits || [];
+            } else {
+                const repoPath = await getEffectiveRepoPath();
+                const result = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
+                gitLogs = result.logs;
+                detailed = result.detailed;
+                commits = result.commits || [];
+            }
         } catch (e) {
-            gitLogs = await getTodayGitLogs(repoPath);
+            try {
+                const fallbackPath = await getEffectiveRepoPath(repoIds && repoIds[0] ? repoIds[0] : undefined);
+                gitLogs = await getTodayGitLogs(fallbackPath);
+            } catch { gitLogs = ''; }
         }
-        if (!gitLogs) return res.status(400).json({ error: 'Belum ada commit hari ini' });
+        if (!gitLogs) return res.status(400).json({ error: 'Belum ada commit Git hari ini.' });
         const draft = await generateWithGemini(gitLogs, detailed);
         const dayKey = todayKeyWIB();
-        const payload = { dayKey, draft, gitLogs, detailed, commits, generatedAt: new Date().toISOString() };
+        const payload = { dayKey, draft, gitLogs, detailed, commits, repoIds: repoIds || [], generatedAt: new Date().toISOString() };
         await saveAutoDraft(payload);
         res.json(payload);
     } catch (error) {
@@ -484,28 +601,42 @@ async function handlePushReminder(req, res) {
         let payload = null;
         let autoDraftPayload = null;
         let commitCount = 0;
+        let draftRepoIds = null;
         try {
-            const repoPath = await getEffectiveRepoPath();
+            const settings = await getSettingsForDisplay().catch(()=>null);
+            const repoIds = settings && Array.isArray(settings.defaultRepoIds) && settings.defaultRepoIds.length ? settings.defaultRepoIds : null;
             let gitLogs = '';
             let detailed = '';
             let commits = [];
             try {
-                const resultDetailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
-                gitLogs = resultDetailed.logs;
-                detailed = resultDetailed.detailed;
-                commits = resultDetailed.commits || [];
+                if (repoIds && repoIds.length > 0) {
+                    const combined = await getCombinedDetailed(repoIds);
+                    gitLogs = combined.logs;
+                    detailed = combined.detailed;
+                    commits = combined.commits || [];
+                    draftRepoIds = combined.repoIds || repoIds;
+                } else {
+                    const repoPath = await getEffectiveRepoPath();
+                    const resultDetailed = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
+                    gitLogs = resultDetailed.logs;
+                    detailed = resultDetailed.detailed;
+                    commits = resultDetailed.commits || [];
+                }
             } catch (e) {
                 console.warn('[push-reminder] detailed fetch gagal, fallback simple:', e.message);
-                try { gitLogs = await getTodayGitLogs(repoPath); } catch {}
+                try {
+                    const fallbackPath = await getEffectiveRepoPath(repoIds && repoIds[0] ? repoIds[0] : undefined);
+                    gitLogs = await getTodayGitLogs(fallbackPath);
+                } catch {}
             }
             if (gitLogs && String(gitLogs).trim()) {
                 commitCount = commits.length || String(gitLogs).split('\n').filter(Boolean).length;
                 try {
                     const draft = await generateWithGemini(gitLogs, detailed);
-                    autoDraftPayload = { dayKey, draft, gitLogs, detailed, commits, generatedAt: new Date().toISOString() };
+                    autoDraftPayload = { dayKey, draft, gitLogs, detailed, commits, repoIds: draftRepoIds || repoIds || [], generatedAt: new Date().toISOString() };
                     await saveAutoDraft(autoDraftPayload);
                     payload = buildDraftReadyPayload(commitCount);
-                    console.log(`[push-reminder] auto-draft generated commits=${commitCount} dayKey=${dayKey}`);
+                    console.log(`[push-reminder] auto-draft generated commits=${commitCount} repos=${(draftRepoIds||repoIds||[]).join(',')||'default'} dayKey=${dayKey}`);
                 } catch (e) {
                     console.warn('[push-reminder] generate draft gagal, fallback reminder:', e.message);
                 }
@@ -524,6 +655,19 @@ async function handlePushReminder(req, res) {
         res.status(500).json({ error: error.message });
     }
 }
+
+// SPA fallback: untuk route frontend (/riwayat, /pengaturan) serve index.html
+// Harus setelah semua /api routes agar tidak intercept API. Express static sudah handle "/" tapi tidak untuk sub-path.
+app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) return next();
+    // Jangan intercept file static dengan extension (js, css, png, etc) yang sudah di-handle express.static
+    // Kalau file tidak ditemukan, fallback ke index.html untuk client-side routing
+    const maybeFile = req.path.includes('.');
+    if (maybeFile) return next();
+    res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
+        if (err) next();
+    });
+});
 
 // Hanya listen saat dijalankan lokal (node server.js), jangan saat di Vercel serverless
 if (!process.env.VERCEL) {

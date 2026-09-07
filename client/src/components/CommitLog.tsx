@@ -36,6 +36,8 @@ function CommitEntry({ commit, index }: { commit: Commit; index: number }) {
   const shortSha = commit.shortSha || (sha ? sha.slice(0, 7) : '');
   const message = commit.message || commit.subject || '';
   const author = commit.author || 'unknown';
+  const repoLabel = (commit as Commit).repoLabel || null;
+  const repoId = (commit as Commit).repoId || null;
   const stats =
     lazyDiff?.stats ||
     commit.stats ||
@@ -48,7 +50,8 @@ function CommitEntry({ commit, index }: { commit: Commit; index: number }) {
     setLoading(true);
     setFailed(false);
     try {
-      const data = await api<CommitDiffResponse>(`/api/commits/${encodeURIComponent(sha)}/diff`);
+      const q = repoId ? `?repoId=${encodeURIComponent(String(repoId))}` : '';
+      const data = await api<CommitDiffResponse>(`/api/commits/${encodeURIComponent(sha)}/diff${q}`);
       const patchText = data.patch || data.files?.map((f) => f.patch).join('\n') || '(no diff)';
       const statsText = data.stats || (data.files ? data.files.map((f) => `${f.filename} (+${f.additions}/-${f.deletions})`).join(', ') : undefined);
       setLazyDiff({ patch: patchText, stats: statsText });
@@ -71,9 +74,14 @@ function CommitEntry({ commit, index }: { commit: Commit; index: number }) {
             <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
               <User className="h-3 w-3" /> {author}
             </span>
+            {repoLabel && (
+              <Badge variant="secondary" className="rounded-full font-mono text-[10px] px-1.5 py-0 max-w-full truncate">
+                {repoLabel}
+              </Badge>
+            )}
             {shortSha && (
-              <Badge variant="outline" className="rounded-full font-mono text-[10px] px-1.5 py-0">
-                <GitCommit className="h-3 w-3 mr-1" /> {shortSha}
+              <Badge variant="outline" className="rounded-full font-mono text-[10px] px-1.5 py-0 max-w-full truncate">
+                <GitCommit className="h-3 w-3 mr-1 flex-shrink-0" aria-hidden="true" /> {shortSha}
               </Badge>
             )}
           </div>
@@ -89,12 +97,14 @@ function CommitEntry({ commit, index }: { commit: Commit; index: number }) {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-7 rounded-full text-xs gap-1"
+                className="h-7 min-h-[44px] sm:min-h-0 rounded-full text-xs gap-1"
                 onClick={() => setOpen(!open)}
+                aria-expanded={open}
+                aria-label={`${open ? 'Tutup' : 'Lihat'} diff ${shortSha}`}
               >
-                <FileCode2 className="h-3.5 w-3.5" />
+                <FileCode2 className="h-3.5 w-3.5" aria-hidden="true" />
                 {open ? 'tutup diff' : 'lihat diff'}
-                <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} />
+                <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} aria-hidden="true" />
                 <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px]">{shortSha}</span>
               </Button>
               {open && (
@@ -112,9 +122,9 @@ function CommitEntry({ commit, index }: { commit: Commit; index: number }) {
                       <FileCode2 className="h-3 w-3 mt-[2px]" /> {lazyDiff.stats}
                     </p>
                   )}
-                  <Button variant="outline" size="sm" className="mt-1 h-7 rounded-full text-xs" onClick={() => setOpen(!open)}>
+                  <Button variant="outline" size="sm" className="mt-1 h-7 min-h-[44px] sm:min-h-0 rounded-full text-xs" onClick={() => setOpen(!open)} aria-expanded={open}>
                     {open ? 'tutup diff' : 'lihat diff'}
-                    <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} />
+                    <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} aria-hidden="true" />
                   </Button>
                   {open && (
                     <pre className="mt-2 max-h-[320px] overflow-auto rounded-lg border bg-[#0d1117] p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
@@ -123,8 +133,8 @@ function CommitEntry({ commit, index }: { commit: Commit; index: number }) {
                   )}
                 </>
               ) : (
-                <Button variant="outline" size="sm" className="h-7 rounded-full text-xs" onClick={loadDiff} disabled={loading}>
-                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileCode2 className="h-3.5 w-3.5" />}
+                <Button variant="outline" size="sm" className="h-7 min-h-[44px] sm:min-h-0 rounded-full text-xs" onClick={loadDiff} disabled={loading} aria-label={`Muat diff ${shortSha}`}>
+                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FileCode2 className="h-3.5 w-3.5" aria-hidden="true" />}
                   {failed ? 'gagal, coba lagi' : loading ? 'memuat…' : 'muat diff'}
                   {!failed && !loading && shortSha && (
                     <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px]">{shortSha}</span>
@@ -141,6 +151,29 @@ function CommitEntry({ commit, index }: { commit: Commit; index: number }) {
 
 export function CommitLog({ gitLogs, commits }: { gitLogs: string; commits: Commit[] }) {
   if (commits.length > 0) {
+    const hasMulti = commits.some((c) => Boolean((c as Commit).repoLabel));
+    if (hasMulti) {
+      const groups = new Map<string, { label: string; items: { c: Commit; i: number }[] }>();
+      commits.forEach((c, i) => {
+        const label = (c as Commit).repoLabel || 'Repo';
+        if (!groups.has(label)) groups.set(label, { label, items: [] });
+        groups.get(label)!.items.push({ c, i });
+      });
+      return (
+        <>
+          {Array.from(groups.entries()).map(([label, g]) => (
+            <div key={label}>
+              <div className="sticky top-0 z-10 bg-muted/40 px-4 py-1.5 font-mono text-[11px] font-semibold text-muted-foreground border-b backdrop-blur-sm">
+                {label} • {g.items.length} commit
+              </div>
+              {g.items.map(({ c, i }) => (
+                <CommitEntry key={c.sha || `${label}-${i}`} commit={c} index={i} />
+              ))}
+            </div>
+          ))}
+        </>
+      );
+    }
     return (
       <>
         {commits.map((c, i) => (

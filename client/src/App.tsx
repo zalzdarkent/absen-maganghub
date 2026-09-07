@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Commit, StatusResponse, TabName } from './types';
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import type { Commit, Repository, SettingsResponse, StatusResponse } from './types';
 import { api } from './lib/api';
 import { startDailyLogbookReminder } from './lib/notifications';
 import { registerServiceWorker } from './lib/pushClient';
@@ -21,34 +22,29 @@ const STATUS_CFG: Record<StatusKind, { label: string; dot: string; variant: 'suc
   err: { label: 'repo bermasalah', dot: 'bg-red-500', variant: 'destructive' },
 };
 
-const TAB_ITEMS: { key: TabName; label: string; desc: string; icon: typeof Sparkles }[] = [
-  { key: 'generate', label: 'Generate', desc: 'Draft logbook', icon: Sparkles },
-  { key: 'history', label: 'Riwayat', desc: 'Logbook tersimpan', icon: History },
-  { key: 'settings', label: 'Pengaturan', desc: 'Repo & notifikasi', icon: Settings2 },
+const TAB_ITEMS = [
+  { key: 'generate' as const, label: 'Generate', desc: 'Draft logbook', icon: Sparkles, path: '/' },
+  { key: 'history' as const, label: 'Riwayat', desc: 'Logbook tersimpan', icon: History, path: '/riwayat' },
+  { key: 'settings' as const, label: 'Pengaturan', desc: 'Repo & notifikasi', icon: Settings2, path: '/pengaturan' },
 ];
 
 function AppHeader({
-  tab,
-  onTab,
   statusKind,
   statusText,
 }: {
-  tab: TabName;
-  onTab: (t: TabName) => void;
   statusKind: StatusKind;
   statusText: string;
 }) {
   const cfg = STATUS_CFG[statusKind];
-  // override label if custom text provided
   const label = statusText || cfg.label;
 
   return (
     <header className="sticky top-0 z-30 w-full border-b bg-background/70 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-[64px] max-w-[1280px] items-center gap-4 px-4 md:px-6">
-        {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/20">
-            <BookOpen className="h-[18px] w-[18px]" />
+      <div className="mx-auto flex flex-wrap md:flex-nowrap max-w-[1280px] items-center gap-x-2 gap-y-2 md:gap-4 px-3 md:px-6 py-2 md:py-0 md:min-h-[64px]">
+        {/* Brand — baris 1 kiri */}
+        <div className="flex items-center gap-2 md:gap-3 shrink-0 order-1">
+          <div className="flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/20 shrink-0" aria-hidden="true">
+            <BookOpen className="h-[16px] w-[16px] md:h-[18px] md:w-[18px]" aria-hidden="true" />
           </div>
           <div className="hidden sm:block">
             <div className="flex items-baseline gap-1.5">
@@ -58,63 +54,79 @@ function AppHeader({
               </span>
             </div>
           </div>
-          <div className="sm:hidden font-mono text-sm font-semibold flex items-center gap-1.5">
-            <Terminal className="h-3.5 w-3.5 text-primary" />
-            logbook<span className="font-normal text-muted-foreground">@maganghub</span>
+          <div className="sm:hidden font-mono text-[13px] font-semibold flex items-center gap-1 shrink-0" aria-hidden="true">
+            <Terminal className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden="true" />
+            <span className="whitespace-nowrap">logbook<span className="font-normal text-muted-foreground">@maganghub</span></span>
           </div>
         </div>
 
-        <Separator orientation="vertical" className="hidden h-8 sm:block" />
+        <Separator orientation="vertical" className="hidden md:block h-6 md:h-8 shrink-0 order-2" />
 
-        {/* Tabs */}
-        <nav className="flex flex-1 items-center justify-center gap-1">
-          <div className="inline-flex items-center rounded-full bg-muted p-1">
+        {/* Status — baris 1 kanan (ml-auto biar nempel kanan) */}
+        <div className="flex items-center gap-2 shrink-0 order-2 md:order-3 ml-auto md:ml-0">
+          <Badge
+            variant={cfg.variant === 'success' ? 'success' : cfg.variant === 'warning' ? 'warning' : cfg.variant === 'destructive' ? 'destructive' : 'secondary'}
+            className="hidden lg:inline-flex gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium tracking-wide shrink-0"
+          >
+            <span className={cn('h-2 w-2 rounded-full shrink-0', cfg.dot)} />
+            {label}
+          </Badge>
+          {/* mobile + tablet compact — truncated tapi tetap di baris 1 */}
+          <div className="flex lg:hidden items-center gap-1.5 rounded-full border bg-card px-2 py-1 shrink-0 max-w-[112px] sm:max-w-[160px] md:max-w-none">
+            <span className={cn('h-2 w-2 rounded-full shrink-0', cfg.dot)} />
+            <span className="font-mono text-[10px] md:text-[11px] text-muted-foreground truncate">{label}</span>
+          </div>
+        </div>
+
+        {/* Tabs — di mobile jadi baris 2 full-width, di desktop jadi tengah row 1 */}
+        <nav
+          aria-label="Navigasi utama"
+          className="flex w-full md:flex-1 md:w-auto items-center justify-center md:justify-center gap-1 min-w-0 order-3 md:order-2 border-t md:border-0 pt-2 md:pt-0 mt-1 md:mt-0 overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth"
+        >
+          <div className="inline-flex items-center rounded-full bg-muted p-1 shrink-0 mx-auto">
             {TAB_ITEMS.map((t) => {
               const Icon = t.icon;
-              const active = tab === t.key;
               return (
-                <button
+                <NavLink
                   key={t.key}
-                  onClick={() => onTab(t.key)}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all',
-                    active
-                      ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
+                  to={t.path}
+                  aria-label={`${t.label}: ${t.desc}`}
+                  className={({ isActive }) =>
+                    cn(
+                      'inline-flex items-center justify-center gap-1 md:gap-1.5 rounded-full px-2.5 md:px-3.5 py-1.5 text-xs md:text-sm font-medium transition-all min-h-[32px] md:min-h-[36px] whitespace-nowrap shrink-0',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                      isActive
+                        ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )
+                  }
                 >
-                  <Icon className={cn('h-3.5 w-3.5', active ? 'text-primary' : 'opacity-70')} />
-                  <span className="hidden md:inline">{t.label}</span>
-                  <span className="md:hidden text-[13px]">{t.label}</span>
-                </button>
+                  {({ isActive }) => (
+                    <>
+                      <Icon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', isActive ? 'text-primary' : 'opacity-70')} />
+                      <span>{t.label}</span>
+                    </>
+                  )}
+                </NavLink>
               );
             })}
           </div>
         </nav>
-
-        {/* Status */}
-        <div className="flex items-center gap-2">
-          <Badge
-            variant={cfg.variant === 'success' ? 'success' : cfg.variant === 'warning' ? 'warning' : cfg.variant === 'destructive' ? 'destructive' : 'secondary'}
-            className="hidden md:inline-flex gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] font-medium tracking-wide"
-          >
-            <span className={cn('h-2 w-2 rounded-full', cfg.dot)} />
-            {label}
-          </Badge>
-          {/* mobile compact */}
-          <div className="flex md:hidden items-center gap-1.5 rounded-full border bg-card px-2 py-1">
-            <span className={cn('h-2 w-2 rounded-full', cfg.dot)} />
-            <span className="font-mono text-[11px] text-muted-foreground truncate max-w-[96px]">{label}</span>
-          </div>
-        </div>
       </div>
     </header>
   );
 }
 
+function getPageMeta(pathname: string) {
+  if (pathname.startsWith('/riwayat')) return { title: 'Riwayat Logbook', desc: 'Kelola riwayat logbook tersimpan.' };
+  if (pathname.startsWith('/pengaturan')) return { title: 'Pengaturan', desc: 'Atur repo dan notifikasi.' };
+  return { title: 'Buat Draft Logbook Harian', desc: 'Susun logbook harian dari commit Git.' };
+}
+
 export default function App() {
   const { showToast } = useToast();
-  const [tab, setTab] = useState<TabName>('generate');
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const [gitLogs, setGitLogs] = useState('');
   const [commits, setCommits] = useState<Commit[]>([]);
@@ -123,25 +135,69 @@ export default function App() {
   const [statusText, setStatusText] = useState('memeriksa…');
   const [historyReloadKey, setHistoryReloadKey] = useState(0);
   const [autoDraftSignal, setAutoDraftSignal] = useState(0);
-
-  // Deep-link dari push: ?draft=ready → buka tab Generate
-  useEffect(() => {
+  const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [selectedRepoIds, setSelectedRepoIds] = useState<string[]>(() => {
     try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('draft') === 'ready') {
-        setTab('generate');
-        setAutoDraftSignal((k) => k + 1);
-        // bersihkan URL biar tidak reload terus
-        const url = new URL(window.location.href);
-        url.searchParams.delete('draft');
-        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+      const raw = localStorage.getItem('maganghub:selectedRepoIds');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.filter((s) => typeof s === 'string');
       }
     } catch {}
+    return [];
+  });
+
+  // Deep-link dari push: ?draft=ready → buka tab Generate (/)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+      if (params.get('draft') === 'ready') {
+        setAutoDraftSignal((k) => k + 1);
+        params.delete('draft');
+        const qs = params.toString();
+        // paksa ke root (Beranda/Generate) sesuai spec: root untuk halaman Beranda
+        navigate({ pathname: '/', search: qs ? `?${qs}` : '' }, { replace: true });
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('maganghub:selectedRepoIds', JSON.stringify(selectedRepoIds));
+    } catch {}
+  }, [selectedRepoIds]);
+
+  useEffect(() => {
+    api<SettingsResponse>('/api/settings')
+      .then((data) => {
+        const repos = Array.isArray(data.repositories) ? data.repositories : [];
+        setRepositories(repos);
+        if (repos.length === 0) {
+          if (selectedRepoIds.length !== 0) setSelectedRepoIds([]);
+          return;
+        }
+        const valid = new Set(repos.map((r) => r.id));
+        const filtered = selectedRepoIds.filter((id) => valid.has(id));
+        if (filtered.length !== selectedRepoIds.length) {
+          setSelectedRepoIds(filtered);
+          return;
+        }
+        if (filtered.length === 0) {
+          const def = Array.isArray(data.defaultRepoIds) ? data.defaultRepoIds.filter((id) => valid.has(id)) : [];
+          if (def.length) setSelectedRepoIds(def.slice(0, 3));
+          else if (data.activeRepoId && valid.has(data.activeRepoId)) setSelectedRepoIds([data.activeRepoId]);
+          else if (repos[0]) setSelectedRepoIds([repos[0].id]);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadStatus = useCallback(async () => {
     try {
-      const data = await api<StatusResponse>('/api/status');
+      const q = selectedRepoIds.length ? `?repoIds=${encodeURIComponent(selectedRepoIds.join(','))}` : '';
+      const data = await api<StatusResponse>(`/api/status${q}`);
       setGitLogs(data.gitLogs || '');
       setCommits(Array.isArray(data.commits) ? data.commits : []);
       setDetailed(data.detailed || '');
@@ -161,12 +217,11 @@ export default function App() {
       const message = err instanceof Error ? err.message : 'Gagal memuat status';
       showToast(message, 'error');
     }
-  }, [showToast]);
+  }, [showToast, selectedRepoIds]);
 
   useEffect(() => {
     loadStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadStatus]);
 
   useEffect(() => startDailyLogbookReminder(showToast), [showToast]);
 
@@ -175,64 +230,83 @@ export default function App() {
     registerServiceWorker().catch(() => undefined);
   }, []);
 
+  const pageMeta = getPageMeta(location.pathname);
+
   return (
     <div className="min-h-screen bg-background relative">
       {/* subtle background texture */}
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-grid opacity-[0.03]" />
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-b from-primary/[0.04] via-transparent to-transparent" />
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-grid opacity-[0.03]" aria-hidden="true" />
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-b from-primary/[0.04] via-transparent to-transparent" aria-hidden="true" />
 
-      <AppHeader tab={tab} onTab={setTab} statusKind={statusKind} statusText={statusText} />
+      <AppHeader statusKind={statusKind} statusText={statusText} />
 
-      <div className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-8">
-        {/* page heading for current tab */}
+      <main className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-8">
+        {/* page heading for current route */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
-              {tab === 'generate' && 'Buat Draft Logbook Harian'}
-              {tab === 'history' && 'Riwayat Logbook'}
-              {tab === 'settings' && 'Pengaturan'}
-            </h1>
-            <p className="mt-1 max-w-[62ch] text-sm leading-relaxed text-muted-foreground">
-              {tab === 'generate' && 'Susun logbook harian dari commit Git.'}
-              {tab === 'history' && 'Kelola riwayat logbook tersimpan.'}
-              {tab === 'settings' && 'Atur repo dan notifikasi.'}
-            </p>
+            <h1 className="text-xl font-semibold tracking-tight md:text-2xl">{pageMeta.title}</h1>
+            <p className="mt-1 max-w-[62ch] text-sm leading-relaxed text-muted-foreground">{pageMeta.desc}</p>
           </div>
         </div>
 
-        {tab === 'generate' && (
-          <GenerateView
-            gitLogs={gitLogs}
-            commits={commits}
-            detailed={detailed}
-            autoDraftSignal={autoDraftSignal}
-            onRefreshCommits={loadStatus}
-            onGeneratedGitLogs={(logs, det, newCommits) => {
-              setGitLogs(logs);
-              setDetailed(det);
-              if (newCommits) setCommits(newCommits);
-            }}
-            onSaved={() => {
-              loadStatus();
-              setHistoryReloadKey((k) => k + 1);
-            }}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <GenerateView
+                gitLogs={gitLogs}
+                commits={commits}
+                detailed={detailed}
+                autoDraftSignal={autoDraftSignal}
+                repositories={repositories}
+                selectedRepoIds={selectedRepoIds}
+                onSelectedRepoIdsChange={setSelectedRepoIds}
+                onRefreshCommits={loadStatus}
+                onGeneratedGitLogs={(logs, det, newCommits) => {
+                  setGitLogs(logs);
+                  setDetailed(det);
+                  if (newCommits) setCommits(newCommits);
+                }}
+                onSaved={() => {
+                  loadStatus();
+                  setHistoryReloadKey((k) => k + 1);
+                }}
+              />
+            }
           />
-        )}
-        {tab === 'history' && <HistoryView reloadKey={historyReloadKey} />}
-        {tab === 'settings' && (
-          <SettingsView
-            onSaved={() => {
-              loadStatus();
-            }}
+          <Route path="/riwayat" element={<HistoryView reloadKey={historyReloadKey} />} />
+          <Route
+            path="/pengaturan"
+            element={
+              <SettingsView
+                onSaved={async () => {
+                  loadStatus();
+                  try {
+                    const data = await api<SettingsResponse>('/api/settings');
+                    const repos = Array.isArray(data.repositories) ? data.repositories : [];
+                    setRepositories(repos);
+                    const valid = new Set(repos.map((r) => r.id));
+                    setSelectedRepoIds((prev) => {
+                      const filtered = prev.filter((id) => valid.has(id));
+                      if (filtered.length) return filtered;
+                      if (repos.length && data.activeRepoId && valid.has(data.activeRepoId)) return [data.activeRepoId];
+                      if (repos[0]) return [repos[0].id];
+                      return [];
+                    });
+                  } catch {}
+                }}
+              />
+            }
           />
-        )}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
 
         <footer className="mt-10 flex justify-center border-t pt-6 text-center md:justify-start">
           <p className="font-mono text-[11px] text-muted-foreground">
             © {new Date().getFullYear()} Alif Fadillah Ummar.
           </p>
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

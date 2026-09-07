@@ -5,6 +5,12 @@ export interface CommitFile {
   patch?: string;
 }
 
+export interface Repository {
+  id: string;
+  label: string;
+  url: string;
+}
+
 export interface Commit {
   sha?: string;
   shortSha?: string;
@@ -14,6 +20,8 @@ export interface Commit {
   stats?: string;
   patch?: string;
   files?: CommitFile[];
+  repoId?: string | null;
+  repoLabel?: string | null;
 }
 
 export interface CommitDiffResponse {
@@ -29,6 +37,7 @@ export interface StatusResponse {
   hasCommitsToday: boolean;
   alreadyGenerated: boolean;
   cache: Record<string, unknown>;
+  repoIds?: string[];
 }
 
 export interface Draft {
@@ -42,6 +51,7 @@ export interface GenerateResponse {
   gitLogs: string;
   diffSection?: string;
   commits?: Commit[];
+  repoIds?: string[];
 }
 
 export interface GenerateManualResponse {
@@ -52,6 +62,7 @@ export interface GenerateCombinedResponse {
   draft: Draft;
   gitLogs: string;
   diffSection: string;
+  repoIds?: string[];
 }
 
 export interface LogbookEntry extends Draft {
@@ -68,6 +79,9 @@ export interface SettingsResponse {
   repoPath: string;
   persistentSettings?: boolean;
   isVercel?: boolean;
+  repositories?: Repository[];
+  activeRepoId?: string | null;
+  defaultRepoIds?: string[];
 }
 
 export type ToastKind = 'success' | 'error' | 'warning' | 'info';

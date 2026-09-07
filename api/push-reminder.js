@@ -22,7 +22,7 @@ export default async function handler(req, res) {
         } = await import('../lib/push.js');
         const { saveAutoDraft } = await import('../lib/autoDraft.js');
         const { generateWithGemini, getTodayGitLogs, getTodayGitLogsDetailed } = await import('../lib/logbook.js');
-        const { getEffectiveRepoPath } = await import('../lib/settings.js');
+        const { getEffectiveRepoPath, getSettingsForDisplay } = await import('../lib/settings.js');
 
         const cronSecret = String(process.env.CRON_SECRET || '').trim();
         if (cronSecret) {
@@ -41,27 +41,57 @@ export default async function handler(req, res) {
         if (!force && !(await shouldSendDailyReminder(dayKey))) {
             return res.status(200).json({ ok: true, skipped: true, dayKey });
         }
-        // Try auto-draft (16.00 flow)
+        // Try auto-draft (16.00 flow) - hybrid multi-repo
         let payload = null;
         let autoDraftPayload = null;
         let commitCount = 0;
+        let draftRepoIds = null;
         try {
-            const repoPath = await getEffectiveRepoPath();
+            const settings = await getSettingsForDisplay().catch(()=>null);
+            const repoIds = settings && Array.isArray(settings.defaultRepoIds) && settings.defaultRepoIds.length ? settings.defaultRepoIds : null;
             let gitLogs = '';
             let detailed = '';
             let commits = [];
             const FULL_TODAY_DIFF_OPTS = { maxCommits: 10, maxFilesPerCommit: 3, maxCharsPerDiff: 3500, maxTotalChars: 15000 };
             try {
-                const r = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
-                gitLogs = r.logs; detailed = r.detailed; commits = r.commits || [];
+                if (repoIds && repoIds.length > 0) {
+                    const { getRepositories } = await import('../lib/settings.js');
+                    const repos = await getRepositories();
+                    const idToRepo = new Map(repos.map(r=>[r.id,r]));
+                    const perRepoTotal = Math.max(3000, Math.floor(FULL_TODAY_DIFF_OPTS.maxTotalChars / repoIds.length));
+                    const perRepoOpts = { ...FULL_TODAY_DIFF_OPTS, maxTotalChars: perRepoTotal, maxCommits: Math.min(10, Math.max(2, Math.ceil(FULL_TODAY_DIFF_OPTS.maxCommits / repoIds.length * 1.2))) };
+                    const results = await Promise.all(repoIds.map(async (id)=>{
+                        const repo = idToRepo.get(String(id));
+                        const repoPath = repo ? repo.url : await getEffectiveRepoPath(String(id)).catch(()=>null);
+                        const label = repo ? repo.label : String(id);
+                        if (!repoPath) return { logs:'', detailed:'', commits:[] };
+                        try {
+                            const r = await getTodayGitLogsDetailed(repoPath, perRepoOpts);
+                            return { logs: r.logs||'', detailed: r.detailed||'', commits: (r.commits||[]).map(c=>({...c, repoId:id, repoLabel:label})) };
+                        } catch {
+                            try { const l = await getTodayGitLogs(repoPath); return { logs:l||'', detailed:'', commits:[] }; } catch { return { logs:'', detailed:'', commits:[] }; }
+                        }
+                    }));
+                    const logsWithLabels = results.map((r,i)=> r.logs ? `=== REPO: ${idToRepo.get(String(repoIds[i]))?.label || repoIds[i]} ===\n${r.logs}` : null).filter(Boolean);
+                    const detailedWithLabels = results.map((r,i)=> r.detailed ? `=== REPO: ${idToRepo.get(String(repoIds[i]))?.label || repoIds[i]} ===\n${r.detailed}` : null).filter(Boolean);
+                    gitLogs = logsWithLabels.join('\n\n');
+                    detailed = detailedWithLabels.join('\n\n---\n\n');
+                    for (const r of results) commits.push(...r.commits);
+                    if (detailed.length > FULL_TODAY_DIFF_OPTS.maxTotalChars) detailed = detailed.slice(0, FULL_TODAY_DIFF_OPTS.maxTotalChars) + '\n... (truncated)';
+                    draftRepoIds = repoIds;
+                } else {
+                    const repoPath = await getEffectiveRepoPath();
+                    const r = await getTodayGitLogsDetailed(repoPath, FULL_TODAY_DIFF_OPTS);
+                    gitLogs = r.logs; detailed = r.detailed; commits = r.commits || [];
+                }
             } catch (e) {
-                try { gitLogs = await getTodayGitLogs(repoPath); } catch {}
+                try { const repoPath = await getEffectiveRepoPath(repoIds && repoIds[0] ? repoIds[0] : undefined); gitLogs = await getTodayGitLogs(repoPath); } catch {}
             }
             if (gitLogs && String(gitLogs).trim()) {
                 commitCount = commits.length || String(gitLogs).split('\n').filter(Boolean).length;
                 try {
                     const draft = await generateWithGemini(gitLogs, detailed);
-                    autoDraftPayload = { dayKey, draft, gitLogs, detailed, commits, generatedAt: new Date().toISOString() };
+                    autoDraftPayload = { dayKey, draft, gitLogs, detailed, commits, repoIds: draftRepoIds || repoIds || [], generatedAt: new Date().toISOString() };
                     await saveAutoDraft(autoDraftPayload);
                     payload = buildDraftReadyPayload(commitCount);
                 } catch (e) { console.warn('[push-reminder api] generate gagal', e.message); }

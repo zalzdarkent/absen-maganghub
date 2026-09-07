@@ -15,6 +15,22 @@
     {
       "source": "/api/:path*",
       "destination": "/api"
+    },
+    {
+      "source": "/riwayat",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/riwayat/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/pengaturan",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/pengaturan/:path*",
+      "destination": "/index.html"
     }
   ]
 }

@@ -105,10 +105,10 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
   const heatmapYear = currentMonth.getFullYear();
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-6 sm:gap-6">
       {/* Header card with toggle */}
       <Card className="overflow-hidden">
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-5 sm:pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
@@ -129,18 +129,22 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
                   {entries.length} entri
                 </Badge>
               )}
-              <div className="inline-flex items-center rounded-full bg-muted p-1">
+              <div className="inline-flex items-center rounded-full bg-muted p-1" role="group" aria-label="Pilih tampilan riwayat">
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${viewMode === "list" ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"}`}
+                  aria-pressed={viewMode === "list"}
+                  aria-label="Tampilan list"
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all min-h-[44px] sm:min-h-0 ${viewMode === "list" ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  <LayoutList className="h-3.5 w-3.5" /> List
+                  <LayoutList className="h-3.5 w-3.5" aria-hidden="true" /> List
                 </button>
                 <button
                   onClick={() => setViewMode("calendar")}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${viewMode === "calendar" ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"}`}
+                  aria-pressed={viewMode === "calendar"}
+                  aria-label="Tampilan kalender"
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all min-h-[44px] sm:min-h-0 ${viewMode === "calendar" ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  <Grid3X3 className="h-3.5 w-3.5" /> Kalender
+                  <Grid3X3 className="h-3.5 w-3.5" aria-hidden="true" /> Kalender
                 </button>
               </div>
             </div>
@@ -150,7 +154,7 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
         {viewMode === "calendar" && entries !== null && !error && entries.length > 0 && (
           <>
             <Separator />
-            <div className="p-4 sm:p-5">
+            <div className="p-5 sm:p-5">
               <MonthNavigator currentMonth={currentMonth} entries={entries} onPrev={handlePrev} onNext={handleNext} onToday={handleToday} />
             </div>
           </>
@@ -185,7 +189,7 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
               <p className="mt-1 max-w-[36ch] text-sm leading-relaxed text-muted-foreground">Buat draft pertama di tab Generate.</p>
             </div>
           ) : viewMode === "calendar" ? (
-            <div className="space-y-6 p-4 sm:p-5">
+            <div className="space-y-7 sm:space-y-6 p-5 sm:p-5">
               <CalendarGrid currentMonth={currentMonth} entries={entries} entriesByDate={entriesByDate} weeks={weeks} onSelectEntry={setEditing} onSelectEmpty={handleSelectEmpty} />
 
               {/* monthly filtered list */}
@@ -255,7 +259,7 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
                 <button
                   key={entry.rowNumber}
                   onClick={() => setEditing(entry)}
-                  className="group w-full text-left flex items-start gap-4 px-5 py-4 hover:bg-muted/40 transition-colors"
+                  className="group w-full text-left flex items-start gap-4 px-4 sm:px-5 py-5 sm:py-4 hover:bg-muted/40 transition-colors"
                 >
                   <div className="hidden sm:flex flex-col items-center gap-2 pt-1">
                     <span className="h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-primary/15" />

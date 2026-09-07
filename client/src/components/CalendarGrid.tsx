@@ -28,7 +28,7 @@ export function CalendarGrid({ currentMonth, entriesByDate, weeks, onSelectEntry
             <div
               key={wd}
               className={cn(
-                "bg-muted/40 px-2 py-2 text-center font-mono text-[11px] font-semibold uppercase tracking-widest",
+                "bg-muted/40 px-2 py-2.5 sm:py-2 text-center font-mono text-[11px] font-semibold uppercase tracking-widest",
                 isWeekendHeader ? "text-muted-foreground/60" : "text-muted-foreground"
               )}
             >
@@ -51,13 +51,13 @@ export function CalendarGrid({ currentMonth, entriesByDate, weeks, onSelectEntry
               const future = isFuture(date);
               const missingWorkday = isCurrentMonth && !weekend && !future && !isToday && !entry;
 
-              // decide cell appearance
-              let cellClass = "relative flex min-h-[84px] flex-col bg-card p-2 text-left transition-colors hover:bg-muted/40";
-              if (!isCurrentMonth) cellClass = "relative flex min-h-[84px] flex-col bg-muted/20 p-2 text-left opacity-50";
-              else if (entry) cellClass = "relative flex min-h-[84px] flex-col bg-emerald-500/[0.06] p-2 text-left hover:bg-emerald-500/10 border-l-2 border-l-emerald-500/50";
-              else if (missingWorkday) cellClass = "relative flex min-h-[84px] flex-col bg-amber-500/[0.06] p-2 text-left hover:bg-amber-500/10 border-l-2 border-l-amber-500/60";
-              else if (weekend) cellClass = "relative flex min-h-[84px] flex-col bg-muted/20 p-2 text-left";
-              else if (future) cellClass = "relative flex min-h-[84px] flex-col bg-card p-2 text-left opacity-60";
+              // decide cell appearance — lebih lega di mobile
+              let cellClass = "relative flex min-h-[96px] sm:min-h-[84px] flex-col bg-card p-2.5 sm:p-2 text-left transition-colors hover:bg-muted/40";
+              if (!isCurrentMonth) cellClass = "relative flex min-h-[96px] sm:min-h-[84px] flex-col bg-muted/20 p-2.5 sm:p-2 text-left opacity-50";
+              else if (entry) cellClass = "relative flex min-h-[96px] sm:min-h-[84px] flex-col bg-emerald-500/[0.06] p-2.5 sm:p-2 text-left hover:bg-emerald-500/10 border-l-2 border-l-emerald-500/50";
+              else if (missingWorkday) cellClass = "relative flex min-h-[96px] sm:min-h-[84px] flex-col bg-amber-500/[0.06] p-2.5 sm:p-2 text-left hover:bg-amber-500/10 border-l-2 border-l-amber-500/60";
+              else if (weekend) cellClass = "relative flex min-h-[96px] sm:min-h-[84px] flex-col bg-muted/20 p-2.5 sm:p-2 text-left";
+              else if (future) cellClass = "relative flex min-h-[96px] sm:min-h-[84px] flex-col bg-card p-2.5 sm:p-2 text-left opacity-60";
 
               return (
                 <button
@@ -91,21 +91,21 @@ export function CalendarGrid({ currentMonth, entriesByDate, weeks, onSelectEntry
                     {missingWorkday && <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" aria-hidden />}
                   </div>
 
-                  {/* entry preview */}
-                  <div className="mt-1 min-w-0 flex-1">
+                  {/* entry preview — lebih lega */}
+                  <div className="mt-1.5 sm:mt-1 min-w-0 flex-1">
                     {entry ? (
                       <>
-                        <p className="line-clamp-2 text-[11px] font-medium leading-tight text-foreground/90">
+                        <p className="line-clamp-2 text-[12px] sm:text-[11px] font-medium leading-snug sm:leading-tight text-foreground/90">
                           {entry.aktivitas.slice(0, 68)}
                           {entry.aktivitas.length > 68 ? "…" : ""}
                         </p>
-                        <p className="mt-1 hidden text-[10px] leading-none text-muted-foreground sm:block">
+                        <p className="mt-1.5 sm:mt-1 hidden text-[10px] leading-none text-muted-foreground sm:block">
                           {entry.pembelajaran.slice(0, 48)}
                           {entry.pembelajaran.length > 48 ? "…" : ""}
                         </p>
                       </>
                     ) : (
-                      <p className={cn("text-[11px] leading-tight", missingWorkday ? "font-medium text-amber-600 dark:text-amber-400" : weekend ? "text-muted-foreground/50" : future ? "text-muted-foreground/40" : "text-muted-foreground/60")}>
+                      <p className={cn("text-[12px] sm:text-[11px] leading-snug sm:leading-tight", missingWorkday ? "font-medium text-amber-600 dark:text-amber-400" : weekend ? "text-muted-foreground/50" : future ? "text-muted-foreground/40" : "text-muted-foreground/60")}>
                         {missingWorkday ? "Bolong" : weekend ? "Libur" : future ? "—" : isToday ? "Hari ini" : "Kosong"}
                       </p>
                     )}

@@ -1,3 +1,19 @@
 {
-  "repoPath": "https://github.com/zalzdarkent/StockMonitoring-React.git"
+  "repoPath": "https://github.com/zalzdarkent/StockMonitoring-React.git",
+  "repositories": [
+    {
+      "id": "zalzdarkent-stockmon-suqc",
+      "label": "zalzdarkent/StockMonitoring-Re",
+      "url": "https://github.com/zalzdarkent/StockMonitoring-React.git"
+    },
+    {
+      "id": "tmp-1788508542845",
+      "label": "Money",
+      "url": "https://github.com/zalzdarkent/absen-maganghub.git"
+    }
+  ],
+  "activeRepoId": "zalzdarkent-stockmon-suqc",
+  "defaultRepoIds": [
+    "zalzdarkent-stockmon-suqc"
+  ]
 }

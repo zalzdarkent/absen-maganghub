@@ -31,7 +31,7 @@ Use the project's existing verification tools and conventions whenever possible.
 * Run appropriate existing tests or verification commands.
 * Inspect the implementation when automated verification is insufficient.
 * Identify the likely source and responsible area of a failure.
-* Report actionable findings to the Orchestrator.
+* Report actionable findings to the Jarvis.
 
 ## Technology Adaptation
 

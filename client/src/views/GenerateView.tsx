@@ -195,6 +195,12 @@ export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, aut
   }, [autoDraftSignal, selectedIds.join(',')]);
 
   async function runGenerate() {
+    const hasCommits = Boolean(String(gitLogs || '').trim()) || commits.length > 0;
+    if (!hasCommits) {
+      setManualModalOpen(true);
+      showToast('Tidak ada commit hari ini — isi catatan manual (minimal 5 karakter) untuk tetap generate.', 'info');
+      return;
+    }
     startTimer('Menyusun draft...');
     try {
       const body = selectedIds.length ? JSON.stringify({ repoIds: selectedIds }) : undefined;
@@ -501,7 +507,21 @@ export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, aut
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {!draft && !generating && (
+          {!draft && !generating && commitCount === 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900 p-6 text-center">
+              <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-background border shadow-sm">
+                <FileSpreadsheet className="h-5 w-5 text-amber-600" />
+              </div>
+              <p className="text-sm font-medium">Tidak ada commit hari ini</p>
+              <p className="mx-auto mt-1 max-w-[46ch] text-xs leading-relaxed text-muted-foreground">
+                Hari ini belum ada commit. Tetap bisa generate! Tulis catatan aktivitas non-ngoding (meeting, riset, dokumentasi) minimal 5 karakter.
+              </p>
+              <Button size="sm" className="mt-4 rounded-full" onClick={() => setManualModalOpen(true)}>
+                <Wand2 className="h-3.5 w-3.5" /> Tulis catatan & Generate
+              </Button>
+            </div>
+          )}
+          {!draft && !generating && commitCount !== 0 && (
             <div className="rounded-xl border border-dashed bg-muted/20 p-6 text-center">
               <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-background border shadow-sm">
                 <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />

@@ -52,7 +52,7 @@ export function ManualMergeModal({ open, gitLogs, commits, onClose, onSubmit, su
         <DialogHeader className="p-6 pb-4">
           <DialogTitle className="text-base">Tambah catatan</DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
-            Tambahkan konteks meeting atau pembelajaran di luar commit.
+            {count === 0 ? 'Tidak ada commit hari ini — tulis aktivitas non-ngoding (meeting, riset, dokumentasi) minimal 5 karakter untuk tetap generate.' : 'Tambahkan konteks meeting atau pembelajaran di luar commit.'}
           </DialogDescription>
         </DialogHeader>
         <Separator />
@@ -94,7 +94,7 @@ export function ManualMergeModal({ open, gitLogs, commits, onClose, onSubmit, su
               rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Contoh: Mengikuti meeting progress dan validasi data..."
+              placeholder={count === 0 ? "Contoh: Hari ini tidak ngoding — mengikuti meeting validasi data, riset alur TV2, dan menyusun dokumentasi fitur..." : "Contoh: Mengikuti meeting progress dan validasi data..."}
               className="min-h-[96px] resize-y text-sm leading-relaxed"
             />
             <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">

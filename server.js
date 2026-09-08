@@ -210,7 +210,7 @@ app.post('/api/generate', async (req, res) => {
             } catch { gitLogs = ''; }
         }
         if (!gitLogs) {
-            return res.status(400).json({ error: 'Belum ada commit Git hari ini.' });
+            return res.status(400).json({ error: 'Belum ada commit Git hari ini. Silakan pakai "Tambah catatan" untuk generate dari catatan manual (minimal 5 karakter).' });
         }
         const gitMs = Date.now() - t0;
         console.log(`[generate] git fetch done ${gitMs}ms, commits=${commits.length} diffLen=${String(diffSection).length} repos=${repoIds ? repoIds.join(',') : 'default'}`);
@@ -564,7 +564,7 @@ app.post('/api/auto-draft/generate', async (req, res) => {
                 gitLogs = await getTodayGitLogs(fallbackPath);
             } catch { gitLogs = ''; }
         }
-        if (!gitLogs) return res.status(400).json({ error: 'Belum ada commit Git hari ini.' });
+        if (!gitLogs) return res.status(400).json({ error: 'Belum ada commit Git hari ini. Silakan pakai "Tambah catatan" untuk generate dari catatan manual.' });
         const draft = await generateWithGemini(gitLogs, detailed);
         const dayKey = todayKeyWIB();
         const payload = { dayKey, draft, gitLogs, detailed, commits, repoIds: repoIds || [], generatedAt: new Date().toISOString() };

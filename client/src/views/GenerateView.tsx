@@ -23,6 +23,7 @@ interface Props {
   detailed: string;
   isLoadingCommits?: boolean;
   autoDraftSignal?: number;
+  autoManualSignal?: number;
   repositories?: Repository[];
   selectedRepoIds?: string[];
   onSelectedRepoIdsChange?: (ids: string[]) => void;
@@ -60,7 +61,7 @@ function ProgressBar({ len }: { len: number }) {
   );
 }
 
-export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, autoDraftSignal, repositories, selectedRepoIds, onSelectedRepoIdsChange, onRefreshCommits, onGeneratedGitLogs, onSaved }: Props) {
+export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, autoDraftSignal, autoManualSignal, repositories, selectedRepoIds, onSelectedRepoIdsChange, onRefreshCommits, onGeneratedGitLogs, onSaved }: Props) {
   const { showToast } = useToast();
   const [draft, setDraft] = useState<DraftFields | null>(null);
   const repos = repositories || [];
@@ -193,6 +194,15 @@ export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, aut
     }
     return () => { cancelled = true; };
   }, [autoDraftSignal, selectedIds.join(',')]);
+
+  // Deep-link dari push no-commit: ?action=manual → auto buka modal catatan
+  useEffect(() => {
+    if (autoManualSignal && autoManualSignal > 0) {
+      setManualModalOpen(true);
+      showToast('Belum ada commit hari ini — yuk isi catatan manual biar logbook tetap keisi.', 'info');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoManualSignal]);
 
   async function runGenerate() {
     const hasCommits = Boolean(String(gitLogs || '').trim()) || commits.length > 0;

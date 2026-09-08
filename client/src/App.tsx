@@ -136,6 +136,7 @@ export default function App() {
   const [statusLoading, setStatusLoading] = useState(true);
   const [historyReloadKey, setHistoryReloadKey] = useState(0);
   const [autoDraftSignal, setAutoDraftSignal] = useState(0);
+  const [autoManualSignal, setAutoManualSignal] = useState(0);
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [selectedRepoIds, setSelectedRepoIds] = useState<string[]>(() => {
     try {
@@ -148,13 +149,22 @@ export default function App() {
     return [];
   });
 
-  // Deep-link dari push: ?draft=ready → buka tab Generate (/)
+  // Deep-link dari push: ?draft=ready → buka tab Generate (/), ?action=manual → buka modal catatan
   useEffect(() => {
     try {
       const params = new URLSearchParams(location.search);
+      let changed = false;
       if (params.get('draft') === 'ready') {
         setAutoDraftSignal((k) => k + 1);
         params.delete('draft');
+        changed = true;
+      }
+      if (params.get('action') === 'manual') {
+        setAutoManualSignal((k) => k + 1);
+        params.delete('action');
+        changed = true;
+      }
+      if (changed) {
         const qs = params.toString();
         // paksa ke root (Beranda/Generate) sesuai spec: root untuk halaman Beranda
         navigate({ pathname: '/', search: qs ? `?${qs}` : '' }, { replace: true });
@@ -263,6 +273,7 @@ export default function App() {
                 detailed={detailed}
                 isLoadingCommits={statusLoading}
                 autoDraftSignal={autoDraftSignal}
+                autoManualSignal={autoManualSignal}
                 repositories={repositories}
                 selectedRepoIds={selectedRepoIds}
                 onSelectedRepoIdsChange={setSelectedRepoIds}

@@ -23,6 +23,7 @@ import {
 import { getEffectiveRepoPath, getRepositories, getSettingsForDisplay, saveSettings } from './lib/settings.js';
 import {
     buildDraftReadyPayload,
+    buildNoCommitPayload,
     buildReminderPayload,
     getVapidKeys,
     isPushConfigured,
@@ -641,7 +642,8 @@ async function handlePushReminder(req, res) {
                     console.warn('[push-reminder] generate draft gagal, fallback reminder:', e.message);
                 }
             } else {
-                console.log('[push-reminder] no commits today, send simple reminder');
+                payload = buildNoCommitPayload();
+                console.log('[push-reminder] no commits today, send no-commit reminder');
             }
         } catch (e) {
             console.warn('[push-reminder] auto-draft flow error:', e.message);

@@ -125,7 +125,7 @@ export function RecapCard({ entries }: Props) {
           <Button
             onClick={() => handleGenerate("weekly")}
             disabled={!!loading || !hasEntries}
-            className="rounded-full shadow-sm"
+            className="shadow-sm"
             size="sm"
           >
             {loading === "weekly" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CalendarDays className="h-3.5 w-3.5" />}
@@ -137,13 +137,11 @@ export function RecapCard({ entries }: Props) {
           <Button
             onClick={() => handleGenerate("monthly")}
             disabled={!!loading || !hasEntries}
-            variant="outline"
-            className="rounded-full"
             size="sm"
           >
             {loading === "monthly" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
             {loading === "monthly" ? `Merangkum ${elapsed.toFixed(1)}s…` : `Rekap Bulanan`}
-            <Badge variant="secondary" className="ml-1 rounded-full text-[10px]">
+            <Badge variant="secondary" className="ml-1 rounded-full bg-white/20 text-[10px]">
               {monthlyCount} hari
             </Badge>
           </Button>

@@ -135,7 +135,7 @@ export function CalendarGrid({ currentMonth, entriesByDate, weeks, onSelectEntry
             <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Hari ini
           </span>
         </div>
-        <span className="hidden font-mono text-[11px] text-muted-foreground sm:block">Klik tanggal untuk edit • Klik bolong untuk buat draft</span>
+        <span className="hidden font-mono text-[11px] text-muted-foreground sm:block">Klik tanggal untuk edit</span>
       </div>
     </div>
   );

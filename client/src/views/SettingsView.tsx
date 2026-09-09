@@ -345,14 +345,14 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <Label className="text-xs uppercase tracking-widest text-muted-foreground">Repository ({repositories.length}/5)<span className="hidden sm:inline"> — Desktop</span></Label>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground hidden sm:block">Command center: semua terlihat, klik minimal, hover mengungkap aksi. Untuk fokus di layar lebar.</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:hidden">Kelola repo & sinkron commit.</p>
+                    {/* <p className="mt-1 text-xs leading-relaxed text-muted-foreground hidden sm:block">Command center: semua terlihat, klik minimal, hover mengungkap aksi. Untuk fokus di layar lebar.</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:hidden">Kelola repo & sinkron commit.</p> */}
                   </div>
-                  <span className="hidden sm:inline-flex items-center rounded-full bg-primary px-2.5 py-1 text-[10px] font-medium text-primary-foreground">Dense • Hover</span>
-                  <span className="sm:hidden inline-flex items-center rounded-full bg-muted border px-2.5 py-1 text-[10px] font-medium text-muted-foreground">Airy • Tap</span>
+                  {/* <span className="hidden sm:inline-flex items-center rounded-full bg-primary px-2.5 py-1 text-[10px] font-medium text-primary-foreground">Dense • Hover</span>
+                  <span className="sm:hidden inline-flex items-center rounded-full bg-muted border px-2.5 py-1 text-[10px] font-medium text-muted-foreground">Airy • Tap</span> */}
                 </div>
 
-                <div className="v3-stats">
+                {/* <div className="v3-stats">
                   <div className="v3-stat">
                     <span className="v3-stat-label">Total repo</span>
                     <span className="v3-stat-value">{repositories.length}/5</span>
@@ -368,7 +368,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
                     <span className="v3-stat-value flex items-center gap-1.5 text-sm"><span className="h-2 w-2 rounded-full bg-emerald-500" style={{ opacity: 'calc(0.7 + var(--p-accent, 0.5) * 0.6)' }} /> Siap generate</span>
                     <span className="text-xs text-muted-foreground">Sinkron terakhir hari ini</span>
                   </div>
-                </div>
+                </div> */}
 
                 <div className="v3-table-wrap">
                   <div className="v3-table-head">
@@ -427,7 +427,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
         </div>
       </Card>
 
-      <Card className="border-dashed">
+      {/* <Card className="border-dashed">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Tentang</CardTitle>
         </CardHeader>
@@ -436,7 +436,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
             Data disimpan lokal di <code className="rounded bg-muted px-1 py-0.5 font-mono">Logbook_MagangHub.xlsx</code>.
           </p>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }

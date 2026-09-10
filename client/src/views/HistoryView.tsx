@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { EntriesResponse, LogbookEntry } from "../types";
-import { api } from "../lib/api";
+import { api, downloadExcel } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 import { EditEntryModal } from "../components/EditEntryModal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,7 +13,7 @@ import { CalendarGrid } from "@/components/CalendarGrid";
 import { Heatmap } from "@/components/Heatmap";
 import { RecapCard } from "@/components/RecapCard";
 import { getEntriesByDate, getMonthMatrix, toKey } from "@/lib/calendar";
-import { History, Calendar, FileText, ChevronRight, SearchX, Loader2, LayoutList, Grid3X3 } from "lucide-react";
+import { History, Calendar, FileText, ChevronRight, SearchX, Loader2, LayoutList, Grid3X3, FileSpreadsheet } from "lucide-react";
 
 function truncate(text: string, n: number) {
   if (!text) return "";
@@ -26,6 +27,7 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
   const [editing, setEditing] = useState<LogbookEntry | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
   const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
+  const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -42,6 +44,18 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
   useEffect(() => {
     load();
   }, [load, reloadKey]);
+
+  async function handleExportExcel() {
+    setExporting(true);
+    try {
+      await downloadExcel();
+      showToast("File Excel berhasil diunduh.", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Gagal mengunduh file Excel", "error");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function handleSave(rowNumber: number, draftFields: { aktivitas: string; pembelajaran: string; kendala: string }) {
     try {
@@ -122,7 +136,25 @@ export function HistoryView({ reloadKey }: { reloadKey: number }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-center">
+            <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
+              {entries && entries.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportExcel}
+                  disabled={exporting}
+                  className="rounded-full text-xs gap-1.5 font-medium shadow-sm hover:bg-muted min-h-[36px] sm:min-h-0"
+                  aria-label="Export logbook ke Excel"
+                >
+                  {exporting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                  )}
+                  <span>{exporting ? "Mengekspor..." : "Export Excel"}</span>
+                </Button>
+              )}
+
               {entries && entries.length > 0 && (
                 <Badge variant="secondary" className="hidden sm:inline-flex rounded-full font-mono text-xs">
                   <Calendar className="h-3 w-3 mr-1" />

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { Commit, GenerateCombinedResponse, GenerateManualResponse, GenerateResponse, Repository } from '../types';
 import type { GenerateMode } from '../types';
-import { api, downloadExcel } from '../lib/api';
+import { api } from '../lib/api';
 import { notifyDesktop } from '../lib/notifications';
 import { useToast } from '../context/ToastContext';
 import { CommitLog } from '../components/CommitLog';
@@ -373,8 +373,7 @@ export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, aut
           ...(manualMode ? {} : { gitLogs }),
         }),
       });
-      await downloadExcel();
-      showToast('Tersimpan', 'success');
+      showToast('Logbook berhasil disimpan ke riwayat.', 'success');
       // hapus auto-draft setelah berhasil simpan
       try { await api('/api/auto-draft', { method: 'DELETE' }); } catch {}
       resetDraft();
@@ -597,7 +596,7 @@ export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, aut
                     <ProgressBar len={len} />
                     {len < 100 && (
                       <p className="flex items-center gap-1 font-mono text-[11px] text-amber-500">
-                        <AlertCircle className="h-3 w-3" /> Minimal 100 karakter agar bisa disimpan ke Excel
+                        <AlertCircle className="h-3 w-3" /> Minimal 100 karakter agar bisa disimpan
                       </p>
                     )}
                   </div>

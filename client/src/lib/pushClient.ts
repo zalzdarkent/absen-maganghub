@@ -97,11 +97,64 @@ export async function fetchPushStatus() {
   return api<PushStatus>('/api/push/status');
 }
 
+export interface PushDebugInfo {
+  configured: boolean;
+  vapidSubject: string | null;
+  vapidPublicKeyPrefix: string | null;
+  subscriptionCount: number;
+  subscriptions: Array<{
+    endpointSuffix: string;
+    endpointProvider: string;
+    createdAt: string | null;
+    daysAgo: number | null;
+    expirationTime: string | null;
+  }>;
+  lastSentMap: Record<string, string>;
+  todayKey: string;
+  hasSentToday: boolean;
+}
+
+export async function fetchPushDebug() {
+  return api<PushDebugInfo>('/api/push/debug');
+}
+
 export async function sendTestPush() {
-  return api<{ ok: boolean; sent: number; failed: number; total: number }>('/api/push/send', {
+  return api<{ ok: boolean; sent: number; failed: number; total: number; warning?: string }>('/api/push/send', {
     method: 'POST',
     // tag unik per klik: kalau tag sama, Chrome/Windows cuma me-replace notif lama
     // secara diam-diam (tidak popup lagi) sehingga kelihatan "cuma bunyi sekali".
     body: JSON.stringify({ title: 'Test push MagangHub', body: 'Notifikasi push aktif ✔ (walau tab ditutup tetap masuk)', tag: `push-test-${Date.now()}` }),
   });
+}
+
+/**
+ * Sinkronisasi subscription browser dengan server.
+ * Jika browser punya subscription aktif tapi server tidak punya subscriber,
+ * otomatis re-register ke server.
+ * Return: 'ok' | 'resynced' | 'no-subscription' | 'error'
+ */
+export async function syncPushSubscription(): Promise<'ok' | 'resynced' | 'no-subscription' | 'error'> {
+  try {
+    const localSub = await getExistingPushSubscription();
+    if (!localSub) return 'no-subscription';
+
+    const status = await fetchPushStatus().catch(() => null);
+    if (!status) return 'error';
+
+    // Kalau server tidak punya subscriber sama sekali, re-register
+    if (status.subscriptionCount === 0) {
+      const json = localSub.toJSON();
+      try {
+        await api('/api/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription: json }) });
+        console.log('[pushClient] syncPushSubscription: re-registered ke server (subscriptionCount was 0)');
+        return 'resynced';
+      } catch {
+        return 'error';
+      }
+    }
+
+    return 'ok';
+  } catch {
+    return 'error';
+  }
 }

@@ -13,6 +13,7 @@ import {
   getExistingPushSubscription,
   sendTestPush,
   subscribePush,
+  syncPushSubscription,
   unsubscribePush,
 } from '../lib/pushClient';
 import { useToast } from '../context/ToastContext';
@@ -43,6 +44,8 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
   const [pushActive, setPushActive] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [pushServerOk, setPushServerOk] = useState<boolean | null>(null);
+  // true = browser punya subscription tapi server sudah tidak punya (perlu re-subscribe)
+  const [pushDesync, setPushDesync] = useState(false);
   const [autoDraftLoading, setAutoDraftLoading] = useState(false);
 
   async function load() {
@@ -71,7 +74,31 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
       }
       try {
         const existing = await getExistingPushSubscription();
-        setPushActive(Boolean(existing));
+        const isActive = Boolean(existing);
+        setPushActive(isActive);
+        // Cek apakah subscription browser masih sinkron dengan server
+        if (isActive) {
+          const syncResult = await syncPushSubscription();
+          if (syncResult === 'resynced') {
+            // Sudah otomatis diperbaiki
+            showToast('Subscription push diperbaiki otomatis ✔', 'success');
+          } else if (syncResult === 'error') {
+            // Tidak bisa cek → anggap desync
+            setPushDesync(true);
+          }
+          // Cek lagi status setelah sync
+          try {
+            const statusAfter = await fetchPushStatus();
+            if (statusAfter.subscriptionCount === 0) {
+              // Browser punya sub tapi server tetap 0 → perlu re-subscribe manual
+              setPushDesync(true);
+            } else {
+              setPushDesync(false);
+            }
+          } catch {
+            // abaikan
+          }
+        }
       } catch {
         setPushActive(false);
       }
@@ -100,6 +127,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
     try {
       await subscribePush();
       setPushActive(true);
+      setPushDesync(false);
       showToast('Push aktif', 'success');
       try {
         await sendTestPush();
@@ -130,9 +158,33 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
     setPushLoading(true);
     try {
       const result = await sendTestPush();
-      showToast(`Test terkirim ke ${result.sent}/${result.total} device`, 'success');
+      if (result.total === 0 || result.warning) {
+        showToast(
+          result.warning ||
+          'Tidak ada subscriber di server. Klik "Perbaiki" atau matikan lalu aktifkan kembali Web Push.',
+          'warning'
+        );
+      } else {
+        showToast(`Test terkirim ke ${result.sent}/${result.total} device`, result.sent > 0 ? 'success' : 'warning');
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal kirim test push', 'error');
+    } finally {
+      setPushLoading(false);
+    }
+  }
+
+  async function handleFixPush() {
+    setPushLoading(true);
+    try {
+      // Unsubscribe dulu, lalu subscribe ulang
+      await unsubscribePush();
+      await subscribePush();
+      setPushActive(true);
+      setPushDesync(false);
+      showToast('Push diperbaiki & diaktifkan ulang ✔ Coba Test sekarang.', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal perbaiki push', 'error');
     } finally {
       setPushLoading(false);
     }
@@ -410,8 +462,14 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
                   <div className="v3-notif-card">
                     <h4 className="flex items-center gap-1.5">Web Push <span className="ml-auto rounded-full bg-card border px-1.5 py-0.5 font-mono text-[10px]">{pushActive ? 'Aktif' : 'Nonaktif'}</span></h4>
                     <p className="text-xs leading-relaxed text-muted-foreground">Tetap aktif walau tab tertutup (HTTPS).{pushServerOk === false ? ' Server belum dikonfigurasi.' : ''}</p>
-                    <div className="flex gap-1.5 mt-auto">
-                      {pushActive && <Button type="button" variant="outline" disabled={pushLoading} onClick={handleTestPush} className="rounded-full flex-1 min-h-[36px]" size="sm">Test</Button>}
+                    {pushDesync && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+                        ⚠️ Subscription tidak sinkron — browser punya subscription tapi server tidak. Klik <strong>Perbaiki</strong>.
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-1.5 mt-auto">
+                      {pushActive && !pushDesync && <Button type="button" variant="outline" disabled={pushLoading} onClick={handleTestPush} className="rounded-full flex-1 min-h-[36px]" size="sm">Test</Button>}
+                      {pushDesync && <Button type="button" variant="default" disabled={pushLoading} onClick={handleFixPush} className="rounded-full flex-1 min-h-[36px] bg-amber-500 hover:bg-amber-600 text-white" size="sm">{pushLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Perbaiki</Button>}
                       <Button type="button" variant={pushActive ? 'secondary' : 'default'} disabled={!pushSupported || pushLoading || pushServerOk === false} onClick={pushActive ? handleDisablePush : handleEnablePush} className="rounded-full flex-1 min-h-[36px]" size="sm">{pushActive ? 'Matikan' : 'Aktifkan'}</Button>
                     </div>
                   </div>

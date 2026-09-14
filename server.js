@@ -26,6 +26,7 @@ import {
     buildNoCommitPayload,
     buildReminderPayload,
     getVapidKeys,
+    getSubscriptionDebugInfo,
     isPushConfigured,
     listSubscriptions,
     markDailyReminderSent,
@@ -506,7 +507,20 @@ app.post('/api/push/send', async (req, res) => {
         // tag default unik: tag yang sama membuat browser me-replace notif lama tanpa popup baru
         const tag = String(req.body.tag || `push-test-${Date.now()}`).slice(0, 100);
         const result = await sendReminderToAll({ title, body, tag, url: '/' });
+        if (result.total === 0) {
+            return res.json({ ok: false, ...result, warning: 'Tidak ada subscriber terdaftar. Aktifkan Web Push di Settings terlebih dahulu.' });
+        }
         res.json({ ok: true, ...result });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Debug endpoint — untuk diagnosa status push subscription
+app.get('/api/push/debug', async (req, res) => {
+    try {
+        const info = await getSubscriptionDebugInfo();
+        res.json(info);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -2,7 +2,7 @@
 
 description: Implement client-side and presentation-layer functionality by adapting to the project's existing technology stack, architecture, and conventions.
 mode: subagent
-model: opencode/muse-spark-1.2
+model: oc/muse-spark-1.2-contributor-free
 ------------------------------
 
 # Frontend Agent

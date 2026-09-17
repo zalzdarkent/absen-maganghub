@@ -247,14 +247,14 @@ export default function App() {
   const pageMeta = getPageMeta(location.pathname);
 
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen bg-background relative flex flex-col">
       {/* subtle background texture */}
       <div className="pointer-events-none fixed inset-0 -z-10 bg-grid opacity-[0.03]" aria-hidden="true" />
       <div className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-b from-primary/[0.04] via-transparent to-transparent" aria-hidden="true" />
 
       <AppHeader statusKind={statusKind} statusText={statusText} />
 
-      <main className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-8">
+      <main className="mx-auto max-w-[1280px] px-4 py-6 md:px-6 md:py-8 flex-1 w-full">
         {/* page heading for current route */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -317,12 +317,15 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 
-        <footer className="mt-10 flex justify-center border-t pt-6 text-center md:justify-start">
+      </main>
+
+      <footer className="mt-auto border-t">
+        <div className="mx-auto max-w-[1280px] px-4 md:px-6 py-6 flex justify-center md:justify-start text-center">
           <p className="font-mono text-[11px] text-muted-foreground">
             © {new Date().getFullYear()} Alif Fadillah Ummar.
           </p>
-        </footer>
-      </main>
+        </div>
+      </footer>
     </div>
   );
 }

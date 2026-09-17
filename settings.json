@@ -10,6 +10,11 @@
       "id": "tmp-1788745953894",
       "label": "Absen Monev",
       "url": "https://github.com/zalzdarkent/absen-maganghub.git"
+    },
+    {
+      "id": "tmp-1789550473623",
+      "label": "Django",
+      "url": "https://github.com/zalzdarkent/ERDJANGO.git"
     }
   ],
   "activeRepoId": "zalzdarkent-stockmon-suqc",

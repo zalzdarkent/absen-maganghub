@@ -48,62 +48,65 @@ export function ManualMergeModal({ open, gitLogs, commits, onClose, onSubmit, su
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-[560px] gap-0 p-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-4">
+      <DialogContent className="sm:max-w-[560px] max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+        <DialogHeader className="p-5 pb-3 shrink-0">
           <DialogTitle className="text-base">Tambah catatan</DialogTitle>
           <DialogDescription className="text-xs leading-relaxed">
             {count === 0 ? 'Tidak ada commit hari ini — tulis aktivitas non-ngoding (meeting, riset, dokumentasi) minimal 5 karakter untuk tetap generate.' : 'Tambahkan konteks meeting atau pembelajaran di luar commit.'}
           </DialogDescription>
         </DialogHeader>
-        <Separator />
+        <Separator className="shrink-0" />
         <form
-          className="flex flex-col gap-4 p-6"
+          className="flex flex-col min-h-0 flex-1"
           onSubmit={(e) => {
             e.preventDefault();
             onSubmit(notes.trim());
           }}
         >
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <GitCommit className="h-3.5 w-3.5" /> Commit hari ini
-              <span className="normal-case tracking-normal font-mono text-[11px] text-muted-foreground">({count} commit)</span>
-            </Label>
-            <div className="rounded-lg border bg-muted/30 p-3 max-h-[132px] overflow-y-auto space-y-1">
-              {count === 0 ? (
-                <span className="text-xs text-muted-foreground">Tidak ada commit hari ini.</span>
-              ) : (
-                <>
-                  {previewLines.map((l, i) => (
-                    <div key={i} className="font-mono text-[12px] leading-relaxed border-b border-border/40 last:border-0 py-1">
-                      {l}
-                    </div>
-                  ))}
-                  {count > 4 && <div className="text-xs text-muted-foreground pt-1">+{count - 4} lainnya</div>}
-                </>
-              )}
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <GitCommit className="h-3.5 w-3.5" /> Commit hari ini
+                <span className="normal-case tracking-normal font-mono text-[11px] text-muted-foreground">({count} commit)</span>
+              </Label>
+              <div className="rounded-lg border bg-muted/30 p-3 max-h-[120px] overflow-y-auto space-y-1">
+                {count === 0 ? (
+                  <span className="text-xs text-muted-foreground">Tidak ada commit hari ini.</span>
+                ) : (
+                  <>
+                    {previewLines.map((l, i) => (
+                      <div key={i} className="font-mono text-[12px] leading-relaxed border-b border-border/40 last:border-0 py-1">
+                        {l}
+                      </div>
+                    ))}
+                    {count > 4 && <div className="text-xs text-muted-foreground pt-1">+{count - 4} lainnya</div>}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="merge-notes" className="text-xs uppercase tracking-widest text-muted-foreground">
+                Catatan tambahan
+              </Label>
+              <Textarea
+                id="merge-notes"
+                ref={inputRef}
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder={count === 0 ? "Contoh: Hari ini tidak ngoding — mengikuti meeting validasi data, riset alur TV2, dan menyusun dokumentasi fitur..." : "Contoh: Mengikuti meeting progress dan validasi data..."}
+                className="min-h-[80px] resize-y text-sm leading-relaxed"
+              />
+              <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+                <Lightbulb className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+                {hint}
+              </p>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="merge-notes" className="text-xs uppercase tracking-widest text-muted-foreground">
-              Catatan tambahan
-            </Label>
-            <Textarea
-              id="merge-notes"
-              ref={inputRef}
-              rows={4}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder={count === 0 ? "Contoh: Hari ini tidak ngoding — mengikuti meeting validasi data, riset alur TV2, dan menyusun dokumentasi fitur..." : "Contoh: Mengikuti meeting progress dan validasi data..."}
-              className="min-h-[96px] resize-y text-sm leading-relaxed"
-            />
-            <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-              <Lightbulb className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
-              {hint}
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
+          <Separator className="shrink-0" />
+          <div className="flex justify-end gap-2 p-4 bg-muted/20 shrink-0">
             <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
               Batal
             </Button>

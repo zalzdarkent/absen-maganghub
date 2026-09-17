@@ -1,5 +1,6 @@
 {
     "$schema": "https://opencode.ai/config.json",
+
     "agent": {
         "jarvis": {
             "mode": "primary",
@@ -13,6 +14,21 @@
                     "tester": "allow",
                     "reviewer": "allow"
                 }
+            }
+        }
+    },
+
+    "plugin": [
+        "@vheins/opencode-9router@latest"
+    ],
+
+    "provider": {
+        "9router": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "9Router Local",
+            "options": {
+                "baseURL": "http://127.0.0.1:20128/v1",
+                "apiKey": "{env:ROUTER_API_KEY}"
             }
         }
     }

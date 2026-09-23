@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import type { Commit, GenerateCombinedResponse, GenerateManualResponse, GenerateResponse, Repository } from '../types';
+import type { Commit, GenerateCombinedResponse, GenerateManualResponse, GenerateResponse, Repository, SettingsResponse } from '../types';
 import type { GenerateMode } from '../types';
 import { api } from '../lib/api';
 import { notifyDesktop } from '../lib/notifications';
@@ -14,7 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { GitCommit, Sparkles, RefreshCw, Save, RotateCcw, Clock, FileSpreadsheet, Wand2, AlertCircle, Check, Loader2 } from 'lucide-react';
+import { GitCommit, Sparkles, RefreshCw, Save, RotateCcw, Clock, FileSpreadsheet, Wand2, AlertCircle, Check, Loader2, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -89,6 +89,26 @@ export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, aut
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [autoSavedAt, setAutoSavedAt] = useState<number | null>(null);
+  const [activeProvider, setActiveProvider] = useState<'inoacGPT' | 'gemini'>('inoacGPT');
+
+  useEffect(() => {
+    api<SettingsResponse>('/api/settings')
+      .then((data) => {
+        if (data.llmProvider) setActiveProvider(data.llmProvider);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleToggleProvider(newProvider: 'inoacGPT' | 'gemini') {
+    if (newProvider === activeProvider) return;
+    setActiveProvider(newProvider);
+    try {
+      await api('/api/settings', { method: 'POST', body: JSON.stringify({ llmProvider: newProvider }) });
+      toast.success(newProvider === 'inoacGPT' ? 'Model AI: inoacGPT (Local LLM)' : 'Model AI: Google Gemini (Cloud)');
+    } catch {
+      showToast('Gagal mengubah model AI', 'error');
+    }
+  }
 
   function startTimer(label: string) {
     setGenerateLabel(label);
@@ -493,14 +513,46 @@ export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, aut
         <CardHeader className="pb-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2 text-[15px]">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                  <Wand2 className="h-3.5 w-3.5" />
-                </span>
-                Draft Logbook
-              </CardTitle>
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="flex items-center gap-2 text-[15px]">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                    <Wand2 className="h-3.5 w-3.5" />
+                  </span>
+                  Draft Logbook
+                </CardTitle>
+                <div className="inline-flex items-center rounded-full bg-muted/80 p-0.5 border text-[11px] shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleProvider('inoacGPT')}
+                    title="Gunakan Local LLM (inoacGPT - 192.168.13.155)"
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium transition-all text-[11px]",
+                      activeProvider === 'inoacGPT'
+                        ? "bg-background text-foreground shadow-sm font-semibold ring-1 ring-border"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Cpu className="h-3 w-3 text-emerald-500" />
+                    <span>inoacGPT (Local)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleProvider('gemini')}
+                    title="Gunakan Google Gemini Cloud API"
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium transition-all text-[11px]",
+                      activeProvider === 'gemini'
+                        ? "bg-background text-foreground shadow-sm font-semibold ring-1 ring-border"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Sparkles className="h-3 w-3 text-amber-500" />
+                    <span>Gemini</span>
+                  </button>
+                </div>
+              </div>
               <CardDescription className="text-xs leading-relaxed max-w-[52ch]">
-                Tiga bagian: aktivitas, pembelajaran, kendala.
+                Tiga bagian: aktivitas, pembelajaran, kendala. Menggunakan model {activeProvider === 'inoacGPT' ? 'Local LLM (inoacGPT 20B)' : 'Google Gemini'}.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 self-start flex-wrap">

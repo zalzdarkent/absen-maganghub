@@ -17,7 +17,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new Error(
-        'Request timeout (>45 detik). Server masih memproses / Gemini lambat. Coba lagi — percobaan kedua biasanya lebih cepat. Jika tetap, ganti model ke gemini-1.5-flash di Pengaturan.'
+        'Request timeout (>45 detik). Server masih memproses / Gemini lambat. Coba lagi — percobaan kedua biasanya lebih cepat. Jika tetap, periksa pengaturan model Gemini.'
       );
     }
     throw err;

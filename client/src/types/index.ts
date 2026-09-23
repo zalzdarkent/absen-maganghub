@@ -82,6 +82,12 @@ export interface SettingsResponse {
   repositories?: Repository[];
   activeRepoId?: string | null;
   defaultRepoIds?: string[];
+  llmProvider?: 'gemini' | 'inoacGPT';
+  localLlmUrl?: string;
+  localLlmModel?: string;
+  geminiModel?: string;
+  hasApiKey?: boolean;
+  apiKeyMasked?: string;
 }
 
 export type ToastKind = 'success' | 'error' | 'warning' | 'info';

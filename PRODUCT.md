@@ -41,7 +41,7 @@ Success means: an intern opens the Generate tab, sees today's commits with expan
 
 **Confirmed capabilities:**
 - Git ingestion: local `git log --since="00:00:00"` + `git show` for diffs, or GitHub API via `@octokit/rest` paginated `listCommits` since 00:00 UTC, including file patches, stats, and `getCommitDiff` per SHA.
-- Gemini generation: `gemini-1.5-flash` default (allow `gemini-2.0/2.5-flash` variants; `gemini-3.6-flash` auto-fallbacks), 35s API timeout + model fallback, `responseMimeType: application/json`, prompts capped `<9k` chars, validated fields `aktivitas`/`pembelajaran`/`kendala` (manual/combined/recap variants).
+- Gemini generation: `gemini-3.6-flash` default (allow `gemini-2.5-flash` variants), 35s API timeout + model fallback, `responseMimeType: application/json`, prompts capped `<9k` chars, validated fields `aktivitas`/`pembelajaran`/`kendala` (manual/combined/recap variants).
 - CRUD: `GET/POST /api/entries`, `PUT/DELETE /api/entries/:rowNumber`, `GET /api/entries/export` (ExcelJS buffer), `GET /api/status`, `POST /api/generate`/`generate-manual`/`generate-combined`/`generate-recap`, `GET /api/settings` (masked) + `POST /api/settings`, auto-draft `/api/auto-draft*`, push `/api/push/*`.
 - UI: 3 tabs (Generate/Riwayat/Pengaturan) in `client/src/App.tsx` + `views/GenerateView|HistoryView|SettingsView`, status pill, commit expand, Toaster (`sonner`), Radix Dialog/Tabs, Tailwind via PostCSS.
 - Notifications: Web Push via `web-push` + VAPID keys + `sw.js`, Vercel cron + `CRON_SECRET`, plus local daily reminder.

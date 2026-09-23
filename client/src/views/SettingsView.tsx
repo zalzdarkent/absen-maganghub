@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { FolderGit2, AlertTriangle, Loader2, Plus, Trash2, Star } from 'lucide-react';
+import { FolderGit2, AlertTriangle, Loader2, Plus, Trash2, Star, Cpu, Sparkles, Key, Server, CheckCircle2, RefreshCw } from 'lucide-react';
 import type { Repository } from '../types';
 
 export function SettingsView({ onSaved }: { onSaved: () => void }) {
@@ -48,6 +48,18 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
   const [pushDesync, setPushDesync] = useState(false);
   const [autoDraftLoading, setAutoDraftLoading] = useState(false);
 
+  // AI & LLM Provider Settings
+  const [llmProvider, setLlmProvider] = useState<'inoacGPT' | 'gemini'>('inoacGPT');
+  const [localLlmUrl, setLocalLlmUrl] = useState('http://192.168.13.155:8080/v1');
+  const [localLlmModel, setLocalLlmModel] = useState('gpt-oss-20b');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [geminiModel, setGeminiModel] = useState('gemini-3.6-flash');
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [apiKeyMasked, setApiKeyMasked] = useState('');
+  const [savingLlm, setSavingLlm] = useState(false);
+  const [testingLlm, setTestingLlm] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
   async function load() {
     try {
       const data = await api<SettingsResponse>('/api/settings');
@@ -57,8 +69,67 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
       setDefaultRepoIds(Array.isArray(data.defaultRepoIds) ? data.defaultRepoIds : []);
       setPersistentSettings(data.persistentSettings !== false);
       setIsVercel(Boolean(data.isVercel));
+      setLlmProvider(data.llmProvider || 'inoacGPT');
+      setLocalLlmUrl(data.localLlmUrl || 'http://192.168.13.155:8080/v1');
+      setLocalLlmModel(data.localLlmModel || 'gpt-oss-20b');
+      setGeminiModel(data.geminiModel || 'gemini-3.6-flash');
+      setHasApiKey(Boolean(data.hasApiKey));
+      setApiKeyMasked(data.apiKeyMasked || '');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Gagal memuat pengaturan', 'error');
+    }
+  }
+
+  async function handleSaveLlmSettings(providerOverride?: 'inoacGPT' | 'gemini') {
+    setSavingLlm(true);
+    setTestResult(null);
+    const targetProvider = providerOverride || llmProvider;
+    try {
+      const payload: Record<string, string> = {
+        llmProvider: targetProvider,
+        localLlmUrl,
+        localLlmModel,
+        geminiModel,
+      };
+      if (geminiApiKey.trim()) {
+        payload.apiKey = geminiApiKey.trim();
+      }
+      await api('/api/settings', { method: 'POST', body: JSON.stringify(payload) });
+      setLlmProvider(targetProvider);
+      setGeminiApiKey('');
+      showToast(`Pengaturan model AI disimpan (${targetProvider === 'inoacGPT' ? 'inoacGPT Local' : 'Google Gemini'})`, 'success');
+      load();
+      onSaved();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal menyimpan pengaturan AI', 'error');
+    } finally {
+      setSavingLlm(false);
+    }
+  }
+
+  async function handleTestLlm() {
+    setTestingLlm(true);
+    setTestResult(null);
+    try {
+      const payload: Record<string, string> = {
+        provider: llmProvider,
+        localLlmUrl,
+        localLlmModel,
+        geminiModel,
+      };
+      if (geminiApiKey.trim()) payload.apiKey = geminiApiKey.trim();
+      const res = await api<{ ok: boolean; message: string; latencyMs: number }>('/api/test-llm', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      setTestResult({ ok: true, message: res.message || 'Koneksi berhasil!' });
+      showToast(res.message || 'Koneksi model AI berhasil!', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Gagal terhubung ke model AI';
+      setTestResult({ ok: false, message: msg });
+      showToast(msg, 'error');
+    } finally {
+      setTestingLlm(false);
     }
   }
 
@@ -285,6 +356,175 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
           </div>
         </div>
       )}
+
+      {/* Model AI / LLM Configuration Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                {llmProvider === 'inoacGPT' ? <Cpu className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+              </div>
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  Model AI (LLM)
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                    llmProvider === 'inoacGPT' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                  }`}>
+                    {llmProvider === 'inoacGPT' ? 'Local LLM (inoacGPT)' : 'Google Gemini (Cloud)'}
+                  </span>
+                </CardTitle>
+                <CardDescription className="mt-1 text-xs leading-relaxed max-w-[60ch]">
+                  Pilih generator draft logbook: gunakan server Local LLM (inoacGPT) atau Google Gemini API.
+                </CardDescription>
+              </div>
+            </div>
+
+            {/* Provider Switcher Toggle */}
+            <div className="inline-flex rounded-xl bg-muted p-1 border shadow-inner">
+              <button
+                type="button"
+                onClick={() => {
+                  setLlmProvider('inoacGPT');
+                  handleSaveLlmSettings('inoacGPT');
+                }}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                  llmProvider === 'inoacGPT'
+                    ? 'bg-background text-foreground shadow-sm font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Cpu className="h-3.5 w-3.5 text-emerald-500" />
+                <span>inoacGPT (Local)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLlmProvider('gemini');
+                  handleSaveLlmSettings('gemini');
+                }}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                  llmProvider === 'gemini'
+                    ? 'bg-background text-foreground shadow-sm font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                <span>Google Gemini</span>
+              </button>
+            </div>
+          </div>
+        </CardHeader>
+        <Separator />
+        <CardContent className="pt-6 space-y-4">
+          {llmProvider === 'inoacGPT' ? (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 flex items-center gap-2.5 text-xs text-emerald-800 dark:text-emerald-300">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                <span>
+                  Menggunakan server OpenAI-compatible lokal <strong>inoacGPT</strong> (192.168.13.155:8080). Cepat, offline, dan tanpa kuota.
+                </span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Server className="h-3 w-3" /> Base URL
+                  </Label>
+                  <Input
+                    value={localLlmUrl}
+                    onChange={(e) => setLocalLlmUrl(e.target.value)}
+                    placeholder="http://192.168.13.155:8080/v1"
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Endpoint OpenAI-compatible API lokal</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Cpu className="h-3 w-3" /> Model Name
+                  </Label>
+                  <Input
+                    value={localLlmModel}
+                    onChange={(e) => setLocalLlmModel(e.target.value)}
+                    placeholder="gpt-oss-20b"
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground">ID Model pada server local (e.g. gpt-oss-20b)</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Key className="h-3 w-3" /> Gemini API Key
+                  </Label>
+                  <Input
+                    type="password"
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                    placeholder={hasApiKey ? `${apiKeyMasked} (kosongkan jika tidak diubah)` : 'AIzaSy...'}
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {hasApiKey ? '✓ API key sudah tersimpan' : 'Dapatkan gratis di Google AI Studio'}
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> Model Gemini
+                  </Label>
+                  <select
+                    value={geminiModel}
+                    onChange={(e) => setGeminiModel(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
+                  >
+                    <option value="gemini-3.6-flash">gemini-3.6-flash (Free Tier Recommended)</option>
+                    <option value="gemini-2.5-flash">gemini-2.5-flash (Generasi 2.5)</option>
+                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">Pilih versi model cloud Gemini</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {testResult && (
+            <div className={`rounded-xl border p-3 flex items-center gap-2.5 text-xs ${
+              testResult.ok
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                : 'bg-destructive/10 border-destructive/20 text-destructive'
+            }`}>
+              {testResult.ok ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />}
+              <span>{testResult.message}</span>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 pt-2 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={testingLlm}
+              onClick={handleTestLlm}
+              className="rounded-full min-h-[36px]"
+            >
+              {testingLlm ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+              Test Koneksi Model
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={savingLlm}
+              onClick={() => handleSaveLlmSettings()}
+              className="rounded-full min-h-[36px]"
+            >
+              {savingLlm ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+              Simpan Konfigurasi AI
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

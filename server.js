@@ -19,6 +19,7 @@ import {
     readEntries,
     saveCache,
     updateEntry,
+    testLlmConnection,
 } from './lib/logbook.js';
 import { getEffectiveRepoPath, getRepositories, getSettingsForDisplay, saveSettings } from './lib/settings.js';
 import {
@@ -217,8 +218,9 @@ app.post('/api/generate', async (req, res) => {
         const gitMs = Date.now() - t0;
         console.log(`[generate] git fetch done ${gitMs}ms, commits=${commits.length} diffLen=${String(diffSection).length} repos=${repoIds ? repoIds.join(',') : 'default'}`);
         const g0 = Date.now();
-        const draft = await generateWithGemini(gitLogs, diffSection);
-        console.log(`[generate] gemini done ${Date.now() - g0}ms total ${Date.now()-t0}ms`);
+        const provider = req.body?.provider;
+        const draft = await generateWithGemini(gitLogs, diffSection, { provider });
+        console.log(`[generate] ai done ${Date.now() - g0}ms total ${Date.now()-t0}ms`);
         res.json({ draft, gitLogs, diffSection, commits, repoIds: repoIds || [] });
     } catch (error) {
         console.error('[generate] error:', error.message);
@@ -233,7 +235,8 @@ app.post('/api/generate-manual', async (req, res) => {
         if (!description) {
             return res.status(400).json({ error: 'Deskripsi kegiatan wajib diisi.' });
         }
-        const draft = await generateManualWithGemini(description);
+        const provider = req.body?.provider;
+        const draft = await generateManualWithGemini(description, { provider });
         res.json({ draft });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -295,8 +298,9 @@ app.post('/api/generate-combined', async (req, res) => {
             console.log(`[generate-combined] reuse client gitLogs+diff (no fetch) diffLen=${String(diffSection).length}`);
         }
 
-        const draft = await generateCombinedWithGemini(gitLogs || '', manualNotes, diffSection || '');
-        console.log(`[generate-combined] gemini done total ${Date.now()-t0}ms repos=${repoIds ? repoIds.join(',') : 'default'}`);
+        const provider = req.body?.provider;
+        const draft = await generateCombinedWithGemini(gitLogs || '', manualNotes, diffSection || '', { provider });
+        console.log(`[generate-combined] ai done total ${Date.now()-t0}ms repos=${repoIds ? repoIds.join(',') : 'default'}`);
         res.json({ draft, gitLogs: gitLogs || '', diffSection: diffSection || '', repoIds: repoIds || [] });
     } catch (error) {
         console.error('[generate-combined] error:', error.message);
@@ -371,7 +375,8 @@ app.post('/api/generate-recap', async (req, res) => {
         if (filtered.length > 30) filtered = filtered.slice(-30);
 
         console.log(`[recap] period=${period} count=${filtered.length} rentang=${filtered[0]?.tanggal} — ${filtered[filtered.length - 1]?.tanggal}`);
-        const recap = await generateRecapWithGemini(filtered, period === 'monthly' ? 'monthly' : 'weekly');
+        const provider = req.body?.provider;
+        const recap = await generateRecapWithGemini(filtered, period === 'monthly' ? 'monthly' : 'weekly', { provider });
         res.json({ recap, entries: filtered, period, count: filtered.length });
     } catch (error) {
         console.error('[generate-recap] error:', error.message);
@@ -452,6 +457,16 @@ app.post('/api/settings', async (req, res) => {
     try {
         const updated = await saveSettings(req.body);
         res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Test LLM Connection ---
+app.post('/api/test-llm', async (req, res) => {
+    try {
+        const result = await testLlmConnection(req.body || {});
+        res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

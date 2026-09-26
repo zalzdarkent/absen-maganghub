@@ -89,22 +89,24 @@ export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, aut
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [autoSavedAt, setAutoSavedAt] = useState<number | null>(null);
-  const [activeProvider, setActiveProvider] = useState<'inoacGPT' | 'gemini'>('inoacGPT');
+  const [activeProvider, setActiveProvider] = useState<'local' | 'gemini'>('local');
 
   useEffect(() => {
     api<SettingsResponse>('/api/settings')
       .then((data) => {
-        if (data.llmProvider) setActiveProvider(data.llmProvider);
+        if (data.llmProvider) {
+          setActiveProvider(data.llmProvider === 'gemini' ? 'gemini' : 'local');
+        }
       })
       .catch(() => {});
   }, []);
 
-  async function handleToggleProvider(newProvider: 'inoacGPT' | 'gemini') {
+  async function handleToggleProvider(newProvider: 'local' | 'gemini') {
     if (newProvider === activeProvider) return;
     setActiveProvider(newProvider);
     try {
       await api('/api/settings', { method: 'POST', body: JSON.stringify({ llmProvider: newProvider }) });
-      toast.success(newProvider === 'inoacGPT' ? 'Model AI: inoacGPT (Local LLM)' : 'Model AI: Google Gemini (Cloud)');
+      toast.success(newProvider === 'local' ? 'Model AI: Local LLM' : 'Model AI: Google Gemini (Cloud)');
     } catch {
       showToast('Gagal mengubah model AI', 'error');
     }
@@ -523,17 +525,17 @@ export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, aut
                 <div className="inline-flex items-center rounded-full bg-muted/80 p-0.5 border text-[11px] shadow-sm">
                   <button
                     type="button"
-                    onClick={() => handleToggleProvider('inoacGPT')}
-                    title="Gunakan Local LLM (inoacGPT - 192.168.13.155)"
+                    onClick={() => handleToggleProvider('local')}
+                    title="Gunakan Local LLM"
                     className={cn(
                       "flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-medium transition-all text-[11px]",
-                      activeProvider === 'inoacGPT'
+                      activeProvider === 'local'
                         ? "bg-background text-foreground shadow-sm font-semibold ring-1 ring-border"
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     <Cpu className="h-3 w-3 text-emerald-500" />
-                    <span>inoacGPT (Local)</span>
+                    <span>Local LLM</span>
                   </button>
                   <button
                     type="button"
@@ -552,7 +554,7 @@ export function GenerateView({ gitLogs, commits, detailed, isLoadingCommits, aut
                 </div>
               </div>
               <CardDescription className="text-xs leading-relaxed max-w-[52ch]">
-                Tiga bagian: aktivitas, pembelajaran, kendala. Menggunakan model {activeProvider === 'inoacGPT' ? 'Local LLM (inoacGPT 20B)' : 'Google Gemini'}.
+                Tiga bagian: aktivitas, pembelajaran, kendala. Menggunakan model {activeProvider === 'local' ? 'Local LLM' : 'Google Gemini'}.
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 self-start flex-wrap">

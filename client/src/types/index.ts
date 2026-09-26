@@ -82,7 +82,8 @@ export interface SettingsResponse {
   repositories?: Repository[];
   activeRepoId?: string | null;
   defaultRepoIds?: string[];
-  llmProvider?: 'gemini' | 'inoacGPT';
+  llmProvider?: 'gemini' | 'local';
+  localLlmApiKey?: string;
   localLlmUrl?: string;
   localLlmModel?: string;
   geminiModel?: string;

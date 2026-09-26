@@ -49,9 +49,10 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
   const [autoDraftLoading, setAutoDraftLoading] = useState(false);
 
   // AI & LLM Provider Settings
-  const [llmProvider, setLlmProvider] = useState<'inoacGPT' | 'gemini'>('inoacGPT');
-  const [localLlmUrl, setLocalLlmUrl] = useState('http://192.168.13.155:8080/v1');
+  const [llmProvider, setLlmProvider] = useState<'local' | 'gemini'>('local');
+  const [localLlmUrl, setLocalLlmUrl] = useState('http://192.168.13.155:3000');
   const [localLlmModel, setLocalLlmModel] = useState('gpt-oss-20b');
+  const [localLlmApiKey, setLocalLlmApiKey] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [geminiModel, setGeminiModel] = useState('gemini-3.6-flash');
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -69,9 +70,10 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
       setDefaultRepoIds(Array.isArray(data.defaultRepoIds) ? data.defaultRepoIds : []);
       setPersistentSettings(data.persistentSettings !== false);
       setIsVercel(Boolean(data.isVercel));
-      setLlmProvider(data.llmProvider || 'inoacGPT');
-      setLocalLlmUrl(data.localLlmUrl || 'http://192.168.13.155:8080/v1');
+      setLlmProvider(data.llmProvider === 'gemini' ? 'gemini' : 'local');
+      setLocalLlmUrl(data.localLlmUrl || 'http://192.168.13.155:3000');
       setLocalLlmModel(data.localLlmModel || 'gpt-oss-20b');
+      setLocalLlmApiKey(data.localLlmApiKey || '');
       setGeminiModel(data.geminiModel || 'gemini-3.6-flash');
       setHasApiKey(Boolean(data.hasApiKey));
       setApiKeyMasked(data.apiKeyMasked || '');
@@ -80,7 +82,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
     }
   }
 
-  async function handleSaveLlmSettings(providerOverride?: 'inoacGPT' | 'gemini') {
+  async function handleSaveLlmSettings(providerOverride?: 'local' | 'gemini') {
     setSavingLlm(true);
     setTestResult(null);
     const targetProvider = providerOverride || llmProvider;
@@ -89,6 +91,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
         llmProvider: targetProvider,
         localLlmUrl,
         localLlmModel,
+        localLlmApiKey,
         geminiModel,
       };
       if (geminiApiKey.trim()) {
@@ -97,7 +100,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
       await api('/api/settings', { method: 'POST', body: JSON.stringify(payload) });
       setLlmProvider(targetProvider);
       setGeminiApiKey('');
-      showToast(`Pengaturan model AI disimpan (${targetProvider === 'inoacGPT' ? 'inoacGPT Local' : 'Google Gemini'})`, 'success');
+      showToast(`Pengaturan model AI disimpan (${targetProvider === 'local' ? 'Local LLM' : 'Google Gemini'})`, 'success');
       load();
       onSaved();
     } catch (err) {
@@ -115,6 +118,7 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
         provider: llmProvider,
         localLlmUrl,
         localLlmModel,
+        localLlmApiKey,
         geminiModel,
       };
       if (geminiApiKey.trim()) payload.apiKey = geminiApiKey.trim();
@@ -363,19 +367,19 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="flex items-start gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                {llmProvider === 'inoacGPT' ? <Cpu className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+                {llmProvider === 'local' ? <Cpu className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
               </div>
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
                   Model AI (LLM)
                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
-                    llmProvider === 'inoacGPT' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                    llmProvider === 'local' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
                   }`}>
-                    {llmProvider === 'inoacGPT' ? 'Local LLM (inoacGPT)' : 'Google Gemini (Cloud)'}
+                    {llmProvider === 'local' ? 'Local LLM' : 'Google Gemini (Cloud)'}
                   </span>
                 </CardTitle>
                 <CardDescription className="mt-1 text-xs leading-relaxed max-w-[60ch]">
-                  Pilih generator draft logbook: gunakan server Local LLM (inoacGPT) atau Google Gemini API.
+                  Pilih generator draft logbook: gunakan server Local LLM (OpenAI-compatible) atau Google Gemini API.
                 </CardDescription>
               </div>
             </div>
@@ -385,17 +389,17 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
               <button
                 type="button"
                 onClick={() => {
-                  setLlmProvider('inoacGPT');
-                  handleSaveLlmSettings('inoacGPT');
+                  setLlmProvider('local');
+                  handleSaveLlmSettings('local');
                 }}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                  llmProvider === 'inoacGPT'
+                  llmProvider === 'local'
                     ? 'bg-background text-foreground shadow-sm font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Cpu className="h-3.5 w-3.5 text-emerald-500" />
-                <span>inoacGPT (Local)</span>
+                <span>Local LLM</span>
               </button>
               <button
                 type="button"
@@ -417,26 +421,26 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
         </CardHeader>
         <Separator />
         <CardContent className="pt-6 space-y-4">
-          {llmProvider === 'inoacGPT' ? (
+          {llmProvider === 'local' ? (
             <div className="space-y-4">
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 flex items-center gap-2.5 text-xs text-emerald-800 dark:text-emerald-300">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                 <span>
-                  Menggunakan server OpenAI-compatible lokal <strong>inoacGPT</strong> (192.168.13.155:8080). Cepat, offline, dan tanpa kuota.
+                  Menggunakan server OpenAI-compatible lokal. Kamu bisa ganti URL, nama model, atau API key kapan saja.
                 </span>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                    <Server className="h-3 w-3" /> Base URL
+                    <Server className="h-3 w-3" /> API Endpoint URL
                   </Label>
                   <Input
                     value={localLlmUrl}
                     onChange={(e) => setLocalLlmUrl(e.target.value)}
-                    placeholder="http://192.168.13.155:8080/v1"
+                    placeholder="http://192.168.13.155:3000"
                     className="font-mono text-xs"
                   />
-                  <p className="text-[11px] text-muted-foreground">Endpoint OpenAI-compatible API lokal</p>
+                  <p className="text-[11px] text-muted-foreground">URL server Local LLM kamu</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
@@ -448,7 +452,20 @@ export function SettingsView({ onSaved }: { onSaved: () => void }) {
                     placeholder="gpt-oss-20b"
                     className="font-mono text-xs"
                   />
-                  <p className="text-[11px] text-muted-foreground">ID Model pada server local (e.g. gpt-oss-20b)</p>
+                  <p className="text-[11px] text-muted-foreground">Nama model aktif pada LLM Local</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Key className="h-3 w-3" /> API Key (Opsional)
+                  </Label>
+                  <Input
+                    type="password"
+                    value={localLlmApiKey}
+                    onChange={(e) => setLocalLlmApiKey(e.target.value)}
+                    placeholder="Kosongkan jika tanpa auth"
+                    className="font-mono text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Bearer token jika dibutuhkan</p>
                 </div>
               </div>
             </div>
